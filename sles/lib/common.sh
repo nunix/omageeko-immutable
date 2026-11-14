@@ -47,11 +47,15 @@ require_sles_immutable() {
 }
 
 # The local RPM repo lives on /var (writable, outside root snapshots), owned by the user
+# (and /var/lib/omageeko with it: install.state, seeds and markers live there)
 ensure_local_repo() {
-  if [[ ! -d $OMAGEEKO_REPO_DIR ]]; then
-    sudo mkdir -p "$OMAGEEKO_REPO_DIR"
-    sudo chown "$USER:" "$OMAGEEKO_REPO_DIR"
-  fi
+  local d
+  for d in "${OMAGEEKO_REPO_DIR%/*}" "$OMAGEEKO_REPO_DIR"; do
+    if [[ ! -d $d || ! -O $d ]]; then
+      sudo mkdir -p "$d"
+      sudo chown "$USER:" "$d"
+    fi
+  done
   mkdir -p "$STAMP_DIR"
   if [[ ! -f $OMAGEEKO_TUKIT_CONF ]]; then
     log "Bind-mounting /var/lib/omageeko into transactions ($OMAGEEKO_TUKIT_CONF)"
