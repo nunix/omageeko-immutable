@@ -16,7 +16,8 @@ install. Everything below is a plan: no code from it exists yet unless marked �
 > **Status 2026-11-14 (fourth session, later):** §10 G1–G4 implemented ✅ (`bootstrap.sh`, `tools/publish-repo`,
 > `seed-repo github`, `tools/greeter-check`, final reboot, version from `upstream.lock`, `AGENTS.md` + skill).
 > Checked on `sles16.1-fresh`: rerun = no seed, no build, no snapshot, no reboot, all verify OK.
-> Next: run 4 on a brand-new VM, the bootstrap one-liner only.
+> **Run 4 (2026-11-14, `sles16.1-run4`):** bootstrap one-liner only → `greeter: ready` after one bug fix
+> (`/var/lib/omageeko` ownership on a pristine machine, §9 run 4). R9 user checklist pending, then bare metal.
 
 Read first: `sles/README.md`, `docs/sles16-immutable-assessment.md`, each layer's `NOTES.md`.
 
@@ -561,6 +562,24 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   VM**: see §10 G2.
 - The report says "omarchy: 4.0.0.alpha". That's misleading: the deployed tree is the v4.5.0 pin
   (`ac2690c`, same as Tumbleweed). Upstream never bumps its `version` file. See §10 G3.
+
+### Run 4 — 2026-11-14, `sles16.1-run4` (192.168.122.21), bootstrap one-liner, GitHub seed
+- Fresh minimal install by the user (same R0), passwordless sudo set by the user. Only
+  `sles/bootstrap.sh` was run: no sync-guest, no seed VM (`sles16.1-min` deleted).
+- **First attempt failed right after preflight:** `install.state: Permission denied`.
+  `ensure_local_repo` created `/var/lib/omageeko` as root and only chowned `repo/`; until now the
+  manual seed (run before install.sh) chowned the parent as a side effect. Fixed in `9c8fb98`
+  (both dirs owned by the user). This is exactly what a pristine machine catches.
+- Second attempt (`bootstrap.sh --ref 9c8fb98`): rc 0, no manual step, two reboots by itself,
+  install 22:35:53 → 22:39:59, greeter-check 22:40:43: **`greeter: ready (user nunix, session
+  Omarchy)`**, all eight checks ok (greeter started after `state.conf`, not killed at end of boot).
+  Layer 04 logged "SDDM: greeter restarted to pick up the remembered user": the run-3 bug is
+  caught where it happens.
+- Timings: seed 10 s (886 MiB release, checksum ok) · 00 50 s · 01 system 16 s · 01b 42 s (builder
+  image, nothing built) · 02 24 s · 03 system 5 s · reboot · 01 user 41 s · 03 user 16 s · 04 10 s ·
+  final reboot. About 5 minutes from start to greeter.
+- Report shows `omarchy: v4.5.0 (ac2690c)`. Footprint 1232 packages, snapshots #2–#7 (booted #7),
+  no AVC denials, `$HOME`/`authorized_keys` labels correct, resume and greeter-check units removed.
 
 ---
 
