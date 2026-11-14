@@ -1,0 +1,60 @@
+#!/bin/bash
+# Is the machine at a greeter that will log the user in? Checks what broke real installs:
+#   display-manager.service -> sddm.service (not xdm's legacy unit, run 2), the greeter
+#   survives the end of boot (getty@tty1 hung up VT1, run 2), SDDM remembers the user and
+#   the Omarchy session, and the greeter started after that was written (run 3).
+# Usage: sles/tools/greeter-check [--user <name>] [--after-boot] [--out <file>]
+#   --after-boot  wait for boot to finish, then 20 s more, then check (final-reboot unit)
+#   --out         also write the result there (the last line is "greeter: ready ..." or "greeter: FAIL ...")
+# Exit 0 when ready. Runs as root (from the unit) or as a user with sudo.
+source "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+set +e
+user=${SUDO_USER:-$USER} after_boot=0 out=""
+while (( $# )); do
+  case $1 in
+    --user) user=$2; shift ;;
+    --after-boot) after_boot=1 ;;
+    --out) out=$2; shift ;;
+    *) die "Unknown option: $1" ;;
+  esac
+  shift
+done
+(( EUID == 0 )) && sudo() { "$@"; }
+
+if (( after_boot )); then
+  for _ in $(seq 120); do
+    [[ $(systemctl is-system-running 2>/dev/null) == @(running|degraded) ]] && break
+    sleep 2
+  done
+  sleep 20
+fi
+
+lines=() fail=0
+ok() { lines+=("  ok   $1"); }
+bad() { lines+=("  FAIL $1"); fail=1; }
+
+link=$(readlink /etc/systemd/system/display-manager.service)
+[[ $link == */sddm.service ]] && ok "display-manager.service -> sddm.service" || bad "display-manager.service -> ${link:-nothing}"
+systemctl is-active -q sddm.service && ok "sddm.service active" || bad "sddm.service is $(systemctl is-active sddm.service)"
+state=/var/lib/sddm/state.conf
+sudo grep -qx "User=$user" "$state" 2>/dev/null && ok "remembered user $user" || bad "state.conf does not remember $user (greeter logs in with an empty name)"
+sudo grep -qx "Session=/usr/share/wayland-sessions/omarchy.desktop" "$state" 2>/dev/null && ok "default session Omarchy" || bad "default session is not omarchy.desktop"
+if seat0_user_session; then
+  ok "someone is already logged in on seat0"
+else
+  pid=$(greeter_pid)
+  if [[ -z $pid ]]; then
+    bad "no greeter process"
+  else
+    ok "greeter running (pid $pid, $(ps -o etimes= -p "$pid" | tr -d ' ') s)"
+    greeter_stale && bad "greeter started before state.conf was written (shows a stale user)" || ok "greeter started after state.conf"
+    loginctl list-sessions --no-legend | awk '$4=="seat0" && $6=="greeter" {f=1} END {exit !f}' &&
+      ok "greeter session on seat0" || bad "no greeter session on seat0"
+  fi
+fi
+errs=$(sudo journalctl -b -u sddm.service --no-pager -q 2>/dev/null | grep -cE 'HELPER_AUTH_ERROR|Signal received: SIGHUP|Greeter stopped\. SDDM::Auth::HelperExitStatus')
+(( errs == 0 )) && ok "the greeter was not killed in this boot" || bad "$errs greeter crashes or hangups in this boot's sddm log (journalctl -b -u sddm)"
+
+if (( fail )); then lines+=("greeter: FAIL (see the lines above)"); else lines+=("greeter: ready (user $user, session Omarchy)"); fi
+{ echo "greeter-check $(date -Is)"; printf '%s\n' "${lines[@]}"; } | tee ${out:+"$out"}
+exit $fail

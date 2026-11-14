@@ -57,7 +57,7 @@ else
   deploy_user_integration "$stage"
   rm -rf "$stage"
   echo "$stamp" > "$STAMP_DIR/03-userland"
-  log "Omarchy $(cat "$OMARCHY_USER_PATH/version") (omageeko $(cut -c1-12 "$OMAGEEKO_USER_DATA/upstream-commit")) deployed"
+  log "Omarchy $(omarchy_release) deployed"
 fi
 
 # ---- Ghostty bundle (default terminal)

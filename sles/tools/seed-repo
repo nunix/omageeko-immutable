@@ -1,15 +1,19 @@
 #!/bin/bash
-# Seed the local RPM repo (/var/lib/omageeko/repo) from a machine that already built it,
-# so build_lock skips every package whose stamp still matches (saves ~50 min of builds).
-# Usage: sles/tools/seed-repo <user@source>              run on the target
-#        sles/tools/seed-repo <user@source> <user@target>  relay from a third machine
-#                                                         (when the target can't ssh to the source)
-# Per-machine stamps don't travel: *-installed and 03-userland/03-ghostty-deployed describe the
-# source's install state, builder-image makes the target build its own image (needed
-# anyway for payload extraction).
+# Seed the local RPM repo (/var/lib/omageeko/repo) with packages built elsewhere, so
+# build_lock skips every package whose stamp still matches (saves ~50 min of builds).
+# Usage: sles/tools/seed-repo github [--if-empty]           published release (run on the target)
+#        sles/tools/seed-repo <user@source>                   another machine (run on the target)
+#        sles/tools/seed-repo <user@source> <user@target>     relay from a third machine
+#                                                             (when the target can't ssh to the source)
+# github: the release tagged repo-<repo_key> (see lib/common.sh) when it exists, else the
+# newest repo-* release (the stamps then rebuild only what changed). No release: nothing
+# happens and the layers build locally. --if-empty: only when the local repo has no RPMs yet.
+# Per-machine stamps don't travel (OMAGEEKO_LOCAL_STAMPS): they describe the source's install
+# state; builder-image makes the target build its own image (needed for payload extraction).
 set -euo pipefail
-src=${1:?usage: seed-repo <user@source> [<user@target>]}
-dst=${2:-}
+src=${1:?usage: seed-repo github|<user@source> [<user@target>|--if-empty]}
+arg2=${2:-}
+
 receive='set -euo pipefail
 d=/var/lib/omageeko
 sudo mkdir -p "$d"
@@ -18,8 +22,37 @@ sudo chown "$(id -un):" "$d"
 tar -C "$d" -xf -
 rm -f "$d"/repo/.stamps/*-installed "$d"/repo/.stamps/03-userland "$d"/repo/.stamps/03-ghostty-deployed "$d"/repo/.stamps/builder-image
 echo "seeded: $(find "$d/repo" -name "*.rpm" | wc -l) RPMs, $(ls "$d/repo/.stamps" | wc -l) build stamps, $(du -sh "$d/repo" | cut -f1)"'
-if [[ -n $dst ]]; then
-  ssh -o BatchMode=yes "$src" 'tar -C /var/lib/omageeko -cf - repo' | ssh -o BatchMode=yes "$dst" "bash -c '$receive'"
+
+if [[ $src == github ]]; then
+  source "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+  if [[ $arg2 == --if-empty && -n $(find "$OMAGEEKO_REPO_DIR" -name '*.rpm' -print -quit 2>/dev/null) ]]; then
+    log "Local repo already has packages; not seeding from GitHub"
+    exit 0
+  fi
+  key=$(repo_key)
+  api="https://api.github.com/repos/$OMAGEEKO_GH_REPO/releases"
+  tag="repo-$key"
+  if ! curl -fsS --max-time 30 -o /dev/null "$api/tags/$tag"; then
+    tag=$(curl -fsS --max-time 30 "$api?per_page=50" 2>/dev/null | python3 -c 'import json,sys
+for r in json.load(sys.stdin):
+    if r["tag_name"].startswith("repo-") and not r["draft"]:
+        print(r["tag_name"]); break' || true)
+    [[ -n $tag ]] || { warn "No published repo on github.com/$OMAGEEKO_GH_REPO: the layers build locally (~50 min)"; exit 0; }
+    warn "No release for this checkout (repo-$key); using the newest, $tag: packages whose inputs changed are rebuilt"
+  fi
+  url="https://github.com/$OMAGEEKO_GH_REPO/releases/download/$tag"
+  tmp=$(mktemp -d /var/tmp/omageeko-seed.XXXXXX)
+  trap 'rm -rf "$tmp"' EXIT
+  log "Downloading $tag from github.com/$OMAGEEKO_GH_REPO"
+  curl -fL --retry 3 --progress-bar -o "$tmp/$OMAGEEKO_REPO_ASSET" "$url/$OMAGEEKO_REPO_ASSET"
+  curl -fsSL --retry 3 -o "$tmp/SHA256SUMS" "$url/SHA256SUMS"
+  (cd "$tmp" && sha256sum --quiet -c SHA256SUMS) || die "Checksum mismatch for $tag: not seeding"
+  bash -c "$receive" < "$tmp/$OMAGEEKO_REPO_ASSET"
+  exit 0
+fi
+
+if [[ -n $arg2 ]]; then
+  ssh -o BatchMode=yes "$src" 'tar -C /var/lib/omageeko -cf - repo' | ssh -o BatchMode=yes "$arg2" "bash -c '$receive'"
 else
   ssh -o BatchMode=yes "$src" 'tar -C /var/lib/omageeko -cf - repo' | bash -c "$receive"
 fi

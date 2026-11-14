@@ -28,5 +28,6 @@ A spec in `packages/` wins over the submodule's `omageeko/packages/` of the same
 git clone --recurse-submodules https://github.com/nunix/omageeko-immutable.git
 ```
 
-The SLES guest needs no git: `sles/tools/sync-guest user@host` copies the checkout, submodule
-included. Then follow [`sles/README.md`](sles/README.md#install-from-scratch).
+Installing on a machine needs no clone and no git: see
+[`sles/README.md`](sles/README.md#install-from-scratch) (`sles/bootstrap.sh`). For development,
+`sles/tools/sync-guest user@host` copies a checkout, submodule included. Agents: [`AGENTS.md`](AGENTS.md).

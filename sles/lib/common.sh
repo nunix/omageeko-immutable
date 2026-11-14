@@ -314,3 +314,55 @@ finish_layer() {
     log "Done. Run $1"
   fi
 }
+
+# ---- Published binary repo (GitHub releases of omageeko-immutable)
+OMAGEEKO_GH_REPO="${OMAGEEKO_GH_REPO:-nunix/omageeko-immutable}"
+OMAGEEKO_REPO_ASSET="omageeko-repo.tar"
+# Stamps that describe one machine's install state; they never travel with a repo
+OMAGEEKO_LOCAL_STAMPS=('*-installed' 03-userland 03-ghostty-deployed builder-image)
+
+# repo_key: names the release that fits this checkout: the build inputs that pin
+# versions (locks, upstream pin, BUILD_REV). Only picks a release: the per-entry
+# stamps still decide what gets rebuilt, so a near miss costs builds, never correctness.
+repo_key() {
+  {
+    echo "rev $BUILD_REV"
+    cat "$OMAGEEKO_SLES/layers/01b-hyprland/hyprland.lock" \
+        "$OMAGEEKO_SLES/layers/02-build-rpms/build.lock" \
+        "$OMAGEEKO_SLES/layers/03-omarchy/build.lock" \
+        "$OMAGEEKO_ROOT/upstream.lock"
+  } | sha256sum | cut -c1-12
+}
+
+# omarchy_release: "v4.5.0 (ac2690c)" from the pin. Upstream's own version file is
+# not bumped by releases (it still says 4.0.0.alpha at v4.5.0).
+omarchy_release() {
+  local rel commit
+  rel=$(sed -n 's/^release=//p' "$OMAGEEKO_ROOT/upstream.lock")
+  commit=$(sed -n 's/^commit=//p' "$OMAGEEKO_ROOT/upstream.lock")
+  echo "${rel:-?} (${commit:0:7})"
+}
+
+# ---- SDDM greeter state
+# greeter_pid: the running greeter (as user sddm; comm is truncated to 15 chars), empty when none
+greeter_pid() { pgrep -u sddm '^sddm-greeter' 2>/dev/null | head -n1 || true; }
+# seat0_user_session: someone is logged in graphically on seat0
+seat0_user_session() {
+  loginctl list-sessions --no-legend 2>/dev/null | awk '$4=="seat0" && $6=="user" {f=1} END {exit !f}'
+}
+# greeter_stale: the greeter started before state.conf was last written, so it still shows
+# the old (possibly empty) remembered user. Omarchy's theme has no user field: a stale greeter
+# logs in as "" ("user unknown"). Start time: the greeter process, else sddm.service.
+greeter_stale() {
+  local pid start mtime ts
+  mtime=$(sudo stat -c %Y /var/lib/sddm/state.conf 2>/dev/null) || return 1
+  pid=$(greeter_pid)
+  if [[ -n $pid ]]; then
+    start=$(( $(date +%s) - $(ps -o etimes= -p "$pid" | tr -d ' ') ))
+  else
+    ts=$(systemctl show -P ActiveEnterTimestamp sddm.service 2>/dev/null)
+    [[ -n $ts ]] || return 1
+    start=$(date -d "$ts" +%s) || return 1
+  fi
+  (( start < mtime ))
+}

@@ -12,6 +12,10 @@ t=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null); [[ -n $t &
 if [[ $(target_dm running) == sddm ]]; then
   sudo grep -q '^Session=/usr/share/wayland-sessions/omarchy.desktop' /var/lib/sddm/state.conf 2>/dev/null && ok "SDDM default session" || bad "SDDM default session not set"
   sudo grep -qx "User=$USER" /var/lib/sddm/state.conf 2>/dev/null && ok "SDDM remembers $USER (greeter has no user field)" || bad "SDDM last user not $USER: the greeter would log in with an empty name"
+  if seat0_user_session; then ok "greeter: $USER is logged in on seat0"
+  elif greeter_stale; then bad "greeter started before state.conf was written: it would log in with an empty name (sudo systemctl restart sddm)"
+  elif [[ -n $(greeter_pid) ]]; then ok "greeter running with the current remembered user"
+  else bad "no greeter running and nobody logged in on seat0"; fi
 fi
 for f in hypr/bindings.lua hypr/input.lua omarchy/shell.json; do
   cmp -s "$OMAGEEKO_SLES/hosts/${OMAGEEKO_HOST_PROFILE:-kvm-guest}/home/.config/$f" "$HOME/.config/$f" && ok "host profile: $f" || bad "host profile file differs: $f"

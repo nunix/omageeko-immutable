@@ -9,8 +9,11 @@
 #   --reboot                          reboot when the system phase needs it and resume
 #                                     the user phase at boot (omageeko-sles-resume.service)
 #   --unattended                      = --yes --reboot
+#   --no-final-reboot                 after a resumed user phase, don't reboot into the greeter
+#                                     (default: reboot once and check the greeter, tools/greeter-check)
 #   --profile <name>                  host profile in sles/hosts/ (default kvm-guest)
-#   --seed <user@host>                seed the local repo from a host that built it (tools/seed-repo)
+#   --seed github|none|<user@host>    prebuilt RPMs for an empty local repo (tools/seed-repo):
+#                                     github = the published release (default), none = build locally
 #   --dry-run                         preflight + resolve the system phase's packages, no changes
 #
 # State: /var/lib/omageeko/install.state (survives rollbacks; removed when the run ends).
@@ -23,7 +26,7 @@ STATE=/var/lib/omageeko/install.state
 RESUME_UNIT=omageeko-sles-resume.service
 L="$OMAGEEKO_SLES/layers"
 
-phase=auto yes=0 reboot=0 dry=0 seed="" profile=${OMAGEEKO_HOST_PROFILE:-kvm-guest}
+phase=auto yes=0 reboot=0 dry=0 seed=github final_reboot=1 from_resume=0 profile=${OMAGEEKO_HOST_PROFILE:-kvm-guest}
 while (( $# )); do
   case $1 in
     --phase) phase=${2:?--phase needs a value}; shift ;;
@@ -31,7 +34,9 @@ while (( $# )); do
     --reboot) reboot=1 ;;
     --unattended) yes=1; reboot=1 ;;
     --profile) profile=${2:?--profile needs a name}; shift ;;
-    --seed) seed=${2:?--seed needs user@host}; shift ;;
+    --seed) seed=${2:?--seed needs github, none or user@host}; shift ;;
+    --no-final-reboot) final_reboot=0 ;;
+    --from-resume) from_resume=1 ;;   # set by the resume unit
     --dry-run) dry=1 ;;
     -h|--help) sed -n '2,20s/^# \{0,1\}//p' "$0"; exit 0 ;;
     *) die "Unknown option: $1 (see --help)" ;;
@@ -188,7 +193,7 @@ Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus
 Environment=HOME=$HOME
 ExecStartPre=+/usr/bin/loginctl enable-linger $USER
 ExecStartPre=+/usr/bin/systemctl start user@$uid.service
-ExecStart=/usr/bin/bash $OMAGEEKO_SLES/install.sh --phase user --yes --profile $profile
+ExecStart=/usr/bin/bash $OMAGEEKO_SLES/install.sh --phase user --yes --from-resume --profile $profile$( (( final_reboot )) || echo ' --no-final-reboot')
 ExecStartPost=+/usr/bin/systemctl disable $RESUME_UNIT
 ExecStopPost=+/usr/bin/loginctl disable-linger $USER
 TimeoutStartSec=3h
@@ -222,10 +227,11 @@ do_reboot() {
 }
 
 phase_system() {
-  if [[ -n $seed && -z $(state_get seeded) ]]; then
-    run_step seed "$OMAGEEKO_SLES/tools/seed-repo" "$seed"
-    state_set seeded "$seed"
-  fi
+  case $seed in
+    none) ;;
+    github) run_step seed "$OMAGEEKO_SLES/tools/seed-repo" github --if-empty ;;
+    *) run_step seed "$OMAGEEKO_SLES/tools/seed-repo" "$seed" ;;
+  esac
   run_step 00-bootstrap "$L/00-bootstrap/install.sh" --phase system
   run_step 01-base.system "$L/01-base/install.sh" --phase system
   run_step 01b-hyprland "$L/01b-hyprland/install.sh"
@@ -274,7 +280,7 @@ report() {
     echo "  profile:      $profile"
     echo "  host:         $(rpm -qa | wc -l) packages; snapshot $(state_get snapshot) $( [[ -n $(state_get snapshot) ]] || echo '(none needed)')"
     echo "  hyprland:     $(rpm -q --qf '%{VERSION}' hyprland 2>/dev/null)"
-    echo "  omarchy:      $(cat "$HOME/.local/share/omarchy/version" 2>/dev/null)"
+    echo "  omarchy:      $(omarchy_release)"
     echo "  dm:           $(readlink /etc/systemd/system/display-manager.service | xargs -r basename)"
     echo "  steps:"
     sed -n 's/^step\.\(.*\)=ok \(.*\)/    \1 \2/p' "$STATE"
@@ -295,7 +301,39 @@ finish() {
   report
   sudo rm -f "$STATE"
   disarm_resume
+  if (( from_resume && final_reboot )); then
+    final_reboot_into_greeter
+  fi
   log "Done. Log out/in (or reboot) and pick the Omarchy session."
+}
+
+# After a resumed (unattended) install: reboot once more, so the machine ends where a person
+# would leave it, and prove the boot path to a working greeter (display-manager.service ->
+# sddm.service on VT1, remembered user). A one-shot unit runs tools/greeter-check after boot
+# and writes /var/lib/omageeko/greeter-check.txt.
+GREETER_CHECK_UNIT=omageeko-sles-greeter-check.service
+final_reboot_into_greeter() {
+  sudo rm -f /var/lib/omageeko/greeter-check.txt
+  sudo install -Dm644 /dev/stdin "/etc/systemd/system/$GREETER_CHECK_UNIT" <<UNIT
+[Unit]
+Description=omageeko SLES install: check the greeter once after the final reboot
+After=display-manager.service
+
+[Service]
+# exec, not oneshot: boot must finish (getty@tty1 starts then) while the check waits
+Type=exec
+ExecStart=/usr/bin/bash $OMAGEEKO_SLES/tools/greeter-check --after-boot --user $USER --out /var/lib/omageeko/greeter-check.txt
+ExecStopPost=/usr/bin/systemctl disable $GREETER_CHECK_UNIT
+ExecStopPost=/usr/bin/rm -f /etc/systemd/system/$GREETER_CHECK_UNIT
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  sudo systemctl daemon-reload
+  sudo systemctl enable "$GREETER_CHECK_UNIT" 2>/dev/null
+  log "Install complete. Final reboot into the greeter; result in /var/lib/omageeko/greeter-check.txt"
+  sudo systemctl reboot
+  exit 0
 }
 
 # ---- main

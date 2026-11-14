@@ -20,7 +20,10 @@ fi
 for p in omageeko omageeko-settings omageeko-session; do
   rpm -q "$p" &>/dev/null && bad "$p is installed on the host (option B keeps it in userland)"
 done
-[[ -f $OMARCHY_USER_PATH/version ]] && ok "OMARCHY_PATH tree: Omarchy $(cat "$OMARCHY_USER_PATH/version")" || bad "no tree at $OMARCHY_USER_PATH"
+want=$(sed -n 's/^commit=//p' "$OMAGEEKO_ROOT/upstream.lock")
+have=$(cat "$OMAGEEKO_USER_DATA/upstream-commit" 2>/dev/null)
+[[ -f $OMARCHY_USER_PATH/version && -n $want && $have == "$want"* ]] && ok "OMARCHY_PATH tree: Omarchy $(omarchy_release), as pinned in upstream.lock" ||
+  bad "deployed Omarchy ${have:0:12} differs from the upstream.lock pin ${want:0:12} (OMAGEEKO_REDEPLOY=1 sles/layers/03-omarchy/install.sh --phase user)"
 links=$(find "$OMARCHY_USER_PATH/bin" -maxdepth 1 -type l | wc -l)
 (( links == 0 )) && ok "bin/ holds real files ($(ls "$OMARCHY_USER_PATH/bin" | wc -l) commands)" || bad "$links symlinks in bin/"
 left=$(grep -rlE '/usr/share/omarchy([^-[:alnum:]_]|$)|/usr/bin/omarchy-' "$OMARCHY_USER_PATH"/{bin,default,shell,config} 2>/dev/null | wc -l)

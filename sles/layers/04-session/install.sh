@@ -148,6 +148,12 @@ if [[ -d /var/lib/sddm ]] && ! { sudo grep -qx "Session=$want_session" "$state" 
     sed -i '/^\[Last\]/a Session=$want_session\nUser=$USER' $state"
   log "SDDM: remembered user $USER, default session Omarchy (Hyprland uwsm)"
 fi
+# The greeter reads lastUser only at startup. In an unattended install it started at boot,
+# before this layer ran, so it still has an empty user. Restart it, but only while nobody is
+# logged in on seat0 (restarting sddm would end a running graphical session).
+if systemctl is-active -q sddm.service && greeter_stale && ! seat0_user_session; then
+  sudo systemctl restart sddm.service && log "SDDM: greeter restarted to pick up the remembered user"
+fi
 
 # Session restore: autosave timer and login offer (docs/session-restore.md)
 systemctl --user daemon-reload

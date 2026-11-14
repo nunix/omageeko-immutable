@@ -10,6 +10,13 @@ install. Everything below is a plan: no code from it exists yet unless marked �
 > are fixed (§4): D-1 is now **SDDM**.
 > **Status 2026-11-14 (third session):** run 2 on a fresh minimal VM (`sles16.1-min`, 192.168.122.226)
 > passes all verify scripts after three fixes (§9 run 2). Next: user test checklist (R9), then R10.
+> **Status 2026-11-14 (fourth session):** run 3 on a brand-new VM (`sles16.1-fresh`, 192.168.122.63)
+> passed R3–R8 and every verify script in one run, **but the first greeter login failed** (§9 run 3).
+> The user does not consider it ready for bare metal yet. §10 is the plan for run 4 and must be done first.
+> **Status 2026-11-14 (fourth session, later):** §10 G1–G4 implemented ✅ (`bootstrap.sh`, `tools/publish-repo`,
+> `seed-repo github`, `tools/greeter-check`, final reboot, version from `upstream.lock`, `AGENTS.md` + skill).
+> Checked on `sles16.1-fresh`: rerun = no seed, no build, no snapshot, no reboot, all verify OK.
+> Next: run 4 on a brand-new VM, the bootstrap one-liner only.
 
 Read first: `sles/README.md`, `docs/sles16-immutable-assessment.md`, each layer's `NOTES.md`.
 
@@ -527,3 +534,119 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   5. `install.sh`: after verify failures the step marks stayed "ok", so a fixed checkout was never
      applied on rerun; and a failing resume unit stayed enabled (rerun at every boot). Now
      `verify_failed` clears step marks + phase and disarms the resume unit.
+
+### Run 3 — 2026-11-14, `sles16.1-fresh` (192.168.122.63, hostname `sleatomic`), SDDM, seeded repo
+- Goal: the first try on a new VM has to pass with no fixes. **Passed:** one `install.sh --unattended`
+  (21:44:33 → 21:50:54, 6 min 21 s including the reboot), rc 0, "All layers verified", resume unit
+  `success` and disarmed, `sddm.service` active through the real unit, no AVC denials since boot.
+- Setup: same libvirt XML as `sles16.1-min` (cloned; ISO as boot order 2), minimal Immutable install
+  by the user with SCC + Package Hub, podman pattern, root password. Probe: 838 packages, nothing
+  MISSING. Seed from `sles16.1-min`: 148 RPMs, 33 stamps, 886 MiB, 4 s. Dry run identical to run 2
+  (392 new, 228.9 MiB download, 737.7 MiB installed).
+- Timings: 00 51 s · 01 system 16 s · 01b 179 s (builder image built from scratch: the seed removes
+  `builder-image` on purpose; no package was built) · 02 26 s · 03 system 4 s (run-2 fix 1 held: no
+  Ghostty rebuild) · reboot · 01 user 47 s · 03 user 17 s · 04 10 s.
+- Footprint: 1232 host packages (same as run 2; KDE VM 1966). Snapshots #2–#7, booted #7.
+- `$HOME` stays `user_home_dir_t` and `authorized_keys` stays `ssh_home_t` after layer 04.
+- Cosmetic: during `omarchy-provision-user` (layer 04), mise prints
+  `WARN Failed to resolve tool version list … no versions found` once for every lazy tool in
+  `omarchy-tools.toml`. Afterwards `mise ls` resolves them all, so the warning is transient and the
+  install isn't affected.
+- **R9 failed at the first step: login.** The greeter sent an empty user name ("pam_unix: user
+  unknown", `Authentication for user "" failed`) and preselected `hyprland.desktop`. Layer 04 wrote
+  `state.conf` correctly at 21:50, but the greeter had started at boot (21:49) and reads `lastUser`
+  only at startup. `systemctl restart sddm` fixed it and `state.conf` survived the restart. Run 2
+  never hit this because its greeter was restarted while debugging. The fix (restart the greeter in
+  layer 04 when no seat0 user session exists) is in the tree but **has not been tested on a fresh
+  VM**: see §10 G2.
+- The report says "omarchy: 4.0.0.alpha". That's misleading: the deployed tree is the v4.5.0 pin
+  (`ac2690c`, same as Tumbleweed). Upstream never bumps its `version` file. See §10 G3.
+
+---
+
+## 10. Plan for run 4: ready for bare metal (written 2026-11-14 after run 3; G1–G4 implemented ✅)
+
+The user's objections after run 3, and what each one means:
+
+1. *"The code is on GitHub, so why did we need `sles16.1-min` as a source?"* It wasn't a source of
+   code. It was a **cache of built RPMs**: layers 01b/02/03 rebuild Hyprland, quickshell, Ghostty,
+   etc. locally (~50 min). Nothing publishes those binaries, so the only shortcut was copying another
+   machine's repo. A bare-metal install must not depend on a VM that happens to exist.
+2. *"The login didn't work after the first system configuration."* On bare metal that means a TTY
+   and ssh just to recover. The install must end at a working greeter, and the run must prove it.
+3. *"Omarchy says 4.0.0, we are on 4.5."* The code is already v4.5.0 (see §9 run 3), but the report
+   must say so. The 4.5 theme intro (`shell/services/BackgroundIntro.qml`,
+   `omarchy-theme-bg-boot-intro`) must be seen at first login, so it becomes an acceptance item.
+4. One entry point: a script anyone can run, plus an agent-ready runbook in the repo.
+
+### G1 — Published binary repo (replaces the seed VM)
+- `sles/tools/publish-repo`: run on any machine with a finished install. It packs
+  `/var/lib/omageeko/repo` (RPMs + `.stamps`, minus the per-machine stamps `seed-repo` already
+  strips), writes `SHA256SUMS`, and uploads one asset to a GitHub release of omageeko-immutable
+  (`gh release upload`). The tag is a **lock hash**: `repo-<sha256 of hyprland.lock + 02/03
+  build.lock + specs>[:12]`. Same locks mean the same binaries, so the tag says exactly which
+  checkout it fits.
+- `install.sh --seed github` (**the default**): compute the lock hash, download the matching
+  release asset, check `SHA256SUMS`, unpack, and strip per-machine stamps (shared with `seed-repo`).
+  No matching release (e.g. right after a bump) → warn and build locally, as today. `--seed none`
+  forces a local build. `--seed user@host` keeps the current relay.
+- Integrity: download over HTTPS from the repo's own releases, plus the checksum. The RPMs are
+  unsigned today, and the local repo is already trusted (`gpgcheck` off for `omageeko-local`).
+  Signing is a later step (R10/ISO), and stays recorded as a risk in §7.
+- Bump workflow: `bump.sh` → build on the Tumbleweed-side VM (or bare metal) → `publish-repo`. The
+  publisher doesn't need SCC; builds stay in the BCI builder as now.
+- **Test matrix additions:** a fresh VM with `--seed github` (expected: no builds, ~7 min); a fresh
+  VM with `--seed none`, timed once, so the bare-metal fallback is known to work end to end.
+
+### G2 — The greeter works on the first boot
+- Layer 04 restarts `sddm.service` after writing `state.conf`, only when seat0 has no `user`
+  session (done in the tree, untested).
+- Defence in depth: `--unattended` ends with **one final reboot** after verify passes
+  (`--no-final-reboot` to skip). On bare metal that is what a person does anyway, and it proves the
+  whole boot path: snapshot, `sddm.service` on VT1, `getty@tty1` not stealing it, remembered user.
+  After the reboot, a one-shot check (in the resume unit's last step) logs `greeter: ready (user
+  nunix, session omarchy)` or FAIL into the install log.
+- 04 verify: FAIL when the greeter is running without a seat0 user session and started *before*
+  the `state.conf` mtime (exactly run 3's failure).
+- Acceptance (R9): the first password typed at the greeter logs in. No restart, no ssh.
+
+### G3 — Version shown and checked
+- Report and layer 03 print the release and commit from `upstream.lock`
+  (`Omarchy v4.5.0 (ac2690c)`), not upstream's stale `version` file.
+- 03 verify: FAIL when the deployed `upstream-commit` differs from `upstream.lock`'s `commit`.
+- R9 checklist gains: **the theme intro plays at first login**, and `omarchy-theme-set <other
+  theme>` plays the switch intro. If it doesn't, look first at QtMultimedia/ffmpeg in the host set
+  (`qt6-multimedia`, `ffmpeg-7` are pulled in today by dependencies, not listed in 00).
+
+### G4 — One entry point: script first, agent runbook on top
+Recommendation: **the script is the product; the agent skill is how an operator (or Claude) drives
+and repairs it**. The skill must never duplicate install logic: it calls the script, watches it,
+and maps failures to known fixes.
+- `sles/bootstrap.sh` (curl-able; the guest has no git):
+  `curl -fsSL https://raw.githubusercontent.com/nunix/omageeko-immutable/main/sles/bootstrap.sh | bash -s -- [--ref <tag>]`
+  1. Checks: SLES 16.1 transactional, not root, sudo works (asks once, no NOPASSWD needed).
+  2. Downloads the omageeko-immutable tarball at `<ref>` and the omageeko submodule tarball at the
+     commit pinned in that ref (GitHub tarballs don't include submodules; the pin comes from the
+     contents API: `repos/nunix/omageeko-immutable/contents/omageeko?ref=<ref>` → `sha`).
+  3. Unpacks to `~/omageeko-immutable`, writes `.omageeko-commit` (as `sync-guest` does), then runs
+     `install.sh --unattended --seed github`, detached, with the log path printed.
+  4. Works from the TTY on bare metal: survives the reboot through the existing resume unit.
+- `.claude/skills/install-omageeko-immutable/SKILL.md` + `AGENTS.md` at the repo root
+  (`CLAUDE.md` → symlink), so a session started in this repo knows the rules (userland first, no
+  `zypper in` on the host, decisions D-1…D-5) and the runbook:
+  inputs (target `user@host`, or local) → access check (ssh key, `sudo -n`) → probe → bootstrap or
+  sync-guest → launch detached → monitor the install log and the resume unit → on failure, look up
+  the known-failure table (built from §9 and the layers' `NOTES.md`: SELinux labels, legacy DM unit,
+  empty greeter user, builder SCC secret, Package Hub missing) → re-run → record the run in §9.
+  Includes the monitor command used in run 3.
+
+### Run 4 runbook (fresh VM, then bare metal)
+1. Implement G1–G4. Publish the repo from `sles16.1-fresh` (it has every RPM of the current locks).
+2. Delete `sles16.1-min` (no longer a seed source). Keep `sles16.1-fresh` until run 4 passes.
+3. New VM, minimal install exactly as R0. **Do not touch it beyond ssh key and sudo.**
+4. On the guest, from a TTY or ssh: the bootstrap one-liner, nothing else. Claude only watches.
+5. Pass = verify all OK + final reboot + greeter ready + first login works + theme intro plays + R9
+   checklist + footprint (expected ~1232 packages).
+6. Optional, same day: a second fresh VM with `--seed none`, to time the full local build.
+7. Bare metal: same one-liner with `OMAGEEKO_HOST_PROFILE` for the machine (new host profile next to
+   `kvm-guest`), and the ISO path (R10) after that.
