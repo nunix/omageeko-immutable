@@ -1,0 +1,15 @@
+# omageeko SLES layer 03: Omarchy itself.
+# local omageeko builds the same noarch RPMs as on Tumbleweed (upstream at the
+# commit in upstream.lock + omageeko patches/overlay); on SLES they are NOT
+# installed but unpacked into ~/.local/share/omarchy (option B). The fonts are
+# unpacked into ~/.local/share/fonts the same way. Only omageeko-sles (session
+# entry + lock PAM) goes on the host.
+local omageeko
+local jetbrains-mono-nerd-fonts
+local ia-writer-fonts
+# Ghostty (before omageeko-sles: build_lock cascades to later entries, and
+# omageeko-sles changes often while Ghostty doesn't depend on it).
+# Default terminal: upstream release + official Zig, unpacked into
+# ~/.local/opt/ghostty with libadwaita bundled (sles/lib/userland.sh deploy_ghostty)
+local ghostty
+local omageeko-sles

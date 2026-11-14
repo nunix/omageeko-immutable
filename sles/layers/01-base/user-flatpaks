@@ -1,0 +1,4 @@
+# SLES layer 01: apps from Flathub, installed per user (--user remote "flathub").
+# Chromium is Omarchy's default browser and web-app runtime; install.sh adds the
+# `chromium` command and the chromium.desktop alias Omarchy expects.
+org.chromium.Chromium

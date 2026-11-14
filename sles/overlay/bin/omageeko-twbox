@@ -1,0 +1,164 @@
+#!/bin/bash
+
+# omarchy:summary=Manage apps installed from openSUSE Tumbleweed in the omageeko-tw distrobox
+# omarchy:args=<ensure|install|remove|has|update|list|repo> [packages...]
+# omarchy:hidden=true
+# omageeko-sles: on SLES Immutable the host root is read-only and only changes
+# through transactional-update snapshots. Packages Omarchy asks for by their
+# Tumbleweed name (omageeko's packages.map) install into one Tumbleweed distrobox
+# instead, so the names match exactly and nothing needs a reboot.
+#
+# Exports: every .desktop file of an installed package (distrobox-export --app),
+# a hidden alias under the original desktop id for Omarchy's gtk-launch calls,
+# and its /usr/bin commands only when the host has no command of that name.
+
+set -euo pipefail
+
+BOX=${OMAGEEKO_TWBOX:-omageeko-tw}
+IMAGE=registry.opensuse.org/opensuse/tumbleweed:latest
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omageeko"
+STATE="$STATE_DIR/twbox-packages"
+EXPORTS="$STATE_DIR/twbox-exports"
+APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+BIN="$HOME/.local/bin"
+REPOS=${OMAGEEKO_REPOS:-${XDG_DATA_HOME:-$HOME/.local/share}/omageeko/repos.tsv}
+
+box_exists() {
+  podman container exists "$BOX" 2>/dev/null
+}
+
+in_box() {
+  distrobox enter --name "$BOX" -- "$@"
+}
+
+ensure() {
+  if ! box_exists; then
+    echo "Creating the $BOX distrobox (openSUSE Tumbleweed)..."
+    distrobox create --yes --name "$BOX" --image "$IMAGE"
+    in_box sudo zypper --non-interactive --gpg-auto-import-keys refresh >/dev/null
+  fi
+  mkdir -p "$STATE_DIR"
+  touch "$STATE" "$EXPORTS"
+}
+
+record() {
+  grep -qx "$1" "$STATE" 2>/dev/null || echo "$1" >> "$STATE"
+}
+
+forget() {
+  local re
+  re=$(printf '%s' "$1" | sed 's/[.[\*^$/]/\\&/g')
+  sed -i "/^$re\$/d" "$STATE" 2>/dev/null || true
+  sed -i "/^$re /d" "$EXPORTS" 2>/dev/null || true
+}
+
+pkg_files() {
+  in_box rpm -ql "$1" 2>/dev/null || true
+}
+
+export_package() {
+  local pkg=$1 file id exported cmd
+  while IFS= read -r file; do
+    id=$(basename "$file" .desktop)
+    in_box distrobox-export --app "$file" >/dev/null 2>&1 || continue
+    exported="$APPS/$BOX-$id.desktop"
+    [[ -f $exported ]] || continue
+    echo "$pkg app $exported" >> "$EXPORTS"
+    if [[ ! -e $APPS/$id.desktop ]]; then
+      sed -e '/^NoDisplay=/d' -e '/^\[Desktop Entry\]/a NoDisplay=true' "$exported" > "$APPS/$id.desktop"
+      echo "$pkg alias $APPS/$id.desktop" >> "$EXPORTS"
+    fi
+  done < <(pkg_files "$pkg" | grep -E '^/usr/share/applications/[^/]+\.desktop$')
+
+  while IFS= read -r file; do
+    cmd=$(basename "$file")
+    # Never shadow a host command (native installs, mise shims, the Arch box, ...)
+    if command -v "$cmd" &>/dev/null || [[ -e $BIN/$cmd ]]; then
+      continue
+    fi
+    in_box distrobox-export --bin "$file" --export-path "$BIN" >/dev/null 2>&1 &&
+      echo "$pkg bin $BIN/$cmd" >> "$EXPORTS"
+  done < <(pkg_files "$pkg" | grep -E '^/usr/bin/[^/]+$')
+}
+
+unexport_package() {
+  local pkg=$1 owner kind path
+  while read -r owner kind path; do
+    [[ $owner == "$pkg" ]] || continue
+    case "$kind" in
+      app) in_box distrobox-export --app "$(basename "$path" .desktop | sed "s/^$BOX-//")" --delete >/dev/null 2>&1 || rm -f "$path" ;;
+      alias | bin) rm -f "$path" ;;
+    esac
+  done < <(cat "$EXPORTS" 2>/dev/null)
+}
+
+# repo <alias> : add a vendor repo from repos.tsv inside the box (key first, GPG check on)
+repo_enable() {
+  local alias=$1 url key
+  in_box zypper lr "$alias" &>/dev/null && return 0
+  read -r url key < <(awk -F'\t' -v a="$alias" '$1 == a { print $2, $3; exit }' "$REPOS")
+  [[ -n $url ]] || { echo "omageeko-twbox: unknown vendor repo '$alias' (not in $REPOS)" >&2; return 1; }
+  echo "Adding vendor repository $alias to $BOX ($url)"
+  in_box sudo rpm --import "$key"
+  in_box sudo zypper --non-interactive addrepo --refresh --priority 95 "$url" "$alias"
+  in_box sudo zypper --non-interactive refresh "$alias" >/dev/null
+}
+
+cmd=${1:-}
+shift || true
+
+case "$cmd" in
+  ensure)
+    ensure
+    ;;
+  repo)
+    (( $# )) || { echo "Usage: omageeko-twbox repo <alias>" >&2; exit 1; }
+    ensure
+    repo_enable "$1"
+    ;;
+  install)
+    (( $# )) || { echo "Usage: omageeko-twbox install <packages...>" >&2; exit 1; }
+    ensure
+    in_box sudo zypper --non-interactive install --no-recommends "$@"
+    for pkg in "$@"; do
+      unexport_package "$pkg"
+      forget "$pkg"
+      export_package "$pkg"
+      record "$pkg"
+    done
+    command -v update-desktop-database &>/dev/null && update-desktop-database "$APPS" 2>/dev/null || true
+    ;;
+  remove)
+    (( $# )) || { echo "Usage: omageeko-twbox remove <packages...>" >&2; exit 1; }
+    box_exists || exit 0
+    for pkg in "$@"; do
+      unexport_package "$pkg"
+    done
+    in_box sudo zypper --non-interactive remove --clean-deps "$@" || true
+    for pkg in "$@"; do
+      forget "$pkg"
+    done
+    ;;
+  has)
+    [[ -n ${1:-} ]] && grep -qx "$1" "$STATE" 2>/dev/null
+    ;;
+  update)
+    box_exists || exit 0
+    [[ -s $STATE ]] || exit 0
+    echo -e "\e[32m\nUpdate omageeko Tumbleweed box apps ($BOX)\e[0m"
+    in_box sudo zypper --non-interactive dist-upgrade --no-recommends
+    while read -r pkg; do
+      [[ -n $pkg ]] || continue
+      unexport_package "$pkg"
+      sed -i "/^$pkg /d" "$EXPORTS"
+      export_package "$pkg"
+    done < "$STATE"
+    ;;
+  list)
+    cat "$STATE" 2>/dev/null || true
+    ;;
+  *)
+    echo "Usage: omageeko-twbox <ensure|install|remove|has|update|list|repo> [packages...]" >&2
+    exit 1
+    ;;
+esac

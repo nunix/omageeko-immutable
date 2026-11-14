@@ -1,0 +1,27 @@
+# omageeko SLES layer 01b: Hyprland stack, rebuilt from openSUSE's packaging.
+# Format: <pool-name> <commit of https://src.opensuse.org/pool/<pool-name>> [# version / note]
+# Order = build order (libraries before their users). bump.sh rewrites the commits
+# from the pool "factory" branch, so the stack moves as one coherent Tumbleweed set.
+# Packages SLES already ships in a recent enough version are NOT listed here.
+# -- SLES 16.1 too old or missing (dependencies of the stack, not Hyprland itself)
+wayland-protocols eb2597fbc59708be97f0c76c9ebb59c0fb8e4cba98ea378828a745eef1cb4658
+libxkbcommon b0523a35c386ee7d33810700314fa14e0bd7e718a77b6909ea8672c4240b8ba4
+sdbus-cpp a73d2b6734dbe329b085323e73a20582014d3c58826434df7430d2f54795f351
+glaze a3349a5fe53f7756d8a8dc8b1071e08eefef0118153ce6ca2942ae62bebd99c1
+# -- Hyprland stack
+hyprwayland-scanner ea2efd30f8448d867fae47fa299cd0c2fc93b089f9c6cf61ed295f047abf2006
+hyprland-protocols 321c2b30b3503418f0d82bada5c9173d3c0fe97d283bc568e6313a4811f7b490
+hyprutils b979966b9ab3d23a51c12c1680a5c2a14610c066eadc1da5364ec3e24719b9f1
+hyprlang 70e0b178d6c060572a687896d62336ff4f0c275df0d57ef4fde2c5bbf6d84cc1
+hyprcursor c12ec96831ed3f8bb5dfb5ee538ba6654f3c98d34e74d70de889054b97bb2c71
+hyprgraphics 9d388fc765a3606d49ce1b917bf0d3530d21102da1f2ac7601ddafbcbcc20ec0
+hyprwire fa4fc3ed08dad8dcba324918496a7793f52da0537cf7a80655f25a9e300869ca
+aquamarine d5abdbad4b9c9db7a1b0a38b19475388fb86b5e9fa990dda3ffb3fca2c0e9591
+lua55 88b4b4c4862231d654886669698471b0c416a343fc318591f8d394a23aeda554
+hyprtoolkit 7e0faec93a8d33a70152d0a87475e20f892a244c6ea698e1471f7139cfeef094
+hyprland 730b2b68bdcdb15f8952e47b14b64b544540f4ea011d7d86b3e38ff126ea0625
+hyprland-guiutils e72e78bcd063a4682b1ed1381adf5df733c7587724c231859631a392962de42f
+hyprpicker fdd1b73797a2875b25775fc0df23deac991815f206c1c8654f65a55f64dc3d3d
+hyprsunset 1063bc97509668f2e2399b9fc41c73234b1ef26efe91664c65627f00eff4d7e1
+xdg-desktop-portal-hyprland eb35b5249c4a550bde808420e18d663ab6811bb94fc2cfba1fa7ef52e15856f2
+uwsm a9e390a2e227b2926d2f6210d9a7ffb674247d6874f7d8b82ce6c4f68ca8ff53

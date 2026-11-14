@@ -1,0 +1,5 @@
+Vendored from upstream Omarchy v4.5.0 (ac2690cd7be4): default/sddm/omarchy/ and
+default/sddm/hyprland.lua (the greeter runs as the sddm user and can't read the userland tree).
+sles/layers/03-omarchy/verify.sh compares them with ~/.local/share/omarchy/default/sddm after a bump.
+Exception: omarchy/logo.png is omageeko's own (OMAGEEKO wordmark, regenerated from
+omageeko/packages/omageeko/overlay/share/branding/logo.txt by make-logo.sh); verify.sh doesn't compare it.

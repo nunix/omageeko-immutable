@@ -1,0 +1,15 @@
+#!/bin/bash
+# Copy the omageeko-immutable checkout (with the omageeko submodule) to a SLES guest that has
+# no git. Usage: sles/tools/sync-guest <user@host> [dest=~/omageeko-immutable]
+# Skips git metadata, the submodule's upstream tree (specs fetch the pinned tarball), bump
+# caches and the archive. Records the submodule commit for install.sh's preflight line.
+set -euo pipefail
+target=${1:?usage: sync-guest <user@host> [dest]}
+dest=${2:-omageeko-immutable}
+root=$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
+[[ -f $root/omageeko/upstream.lock ]] || { echo "submodule missing: git -C $root submodule update --init" >&2; exit 1; }
+commit=$(git -C "$root/omageeko" rev-parse --short HEAD 2>/dev/null || echo '?')
+tar -C "$root" --exclude=.git --exclude=./omageeko/upstream --exclude=./omageeko/.bump \
+    --exclude=./omageeko/archive --exclude="__pycache__" -cf - . |
+  ssh -o BatchMode=yes "$target" "mkdir -p $dest && tar -xf - -C $dest && echo $commit > $dest/omageeko/.omageeko-commit"
+echo "synced $root (omageeko $commit) -> $target:$dest"

@@ -1,0 +1,7 @@
+# omageeko-sles: package-name overrides checked before pkgmap.tsv (same format:
+# <arch-name><TAB><target><TAB><note>). For software the SLES layers provide in
+# userland or on the host, so omarchy-pkg-add does not install a second copy.
+ghostty	@cmd:ghostty	userland bundle ~/.local/opt/ghostty (sles layer 03)
+xdg-terminal-exec	@cmd:xdg-terminal-exec	userland ~/.local/bin (sles layer 01)
+herdr	@cmd:herdr	mise (sles layer 01)
+chromium	@cmd:chromium	Flathub --user + shim (sles layer 01)

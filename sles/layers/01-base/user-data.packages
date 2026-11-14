@@ -1,0 +1,6 @@
+# SLES layer 01: data packages unpacked into ~/.local/share (no host install).
+# Nerd Font symbols and Font Awesome for the bar and menus. (No GTK theme package:
+# Adwaita-dark, which Omarchy selects via gsettings, is built into GTK 3.24 and 4;
+# SLES's gnome-themes-extras is the old GNOME 2 theme set, not Arch's gnome-themes-extra.)
+symbols-only-nerd-fonts
+fontawesome-fonts

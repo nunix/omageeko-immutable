@@ -1,0 +1,6 @@
+# SLES layer 01: host packages this layer replaces with userland copies; removed
+# in one snapshot if the next boot still has them.
+# xdg-terminal-exec 20240120 (Backports) predates --dir and --print-id, which
+# Omarchy's terminal launcher and screensaver use; ~/.local/bin gets v0.14.4.
+# (~/.local/bin comes after /usr/bin on PATH, so the host copy would shadow it.)
+xdg-terminal-exec

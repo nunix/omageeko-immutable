@@ -1,0 +1,53 @@
+# SLES layer 00: the desktop base a *minimal* SLES 16.1 Immutable install lacks.
+# On the KDE install these arrived implicitly with patterns kde_plasma/x11/fonts.
+# Installed in the same pending snapshot as layers 01-03 (only what the next boot lacks).
+# The display manager (SDDM, decision D-1) is handled by install.sh: only when the next
+# boot has no display manager or already uses SDDM.
+# Audio
+pipewire
+wireplumber
+pipewire-pulseaudio
+pipewire-alsa
+# Graphics
+Mesa-dri
+Mesa-libEGL1
+Mesa-libGL1
+libvulkan1
+libvulkan_lvp
+xwayland
+# Desktop services
+polkit
+udisks2
+upower
+power-profiles-daemon
+bluez
+gvfs
+# XDG plumbing
+xdg-user-dirs
+xdg-utils
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+gsettings-desktop-schemas
+glib2-tools
+dconf
+# Icons, fonts
+adwaita-icon-theme
+hicolor-icon-theme
+fontconfig
+google-noto-sans-fonts
+google-noto-coloremoji-fonts
+# Flatpak (Chromium, Flathub targets of omarchy pkg add)
+flatpak
+# Commands Omarchy scripts call (update-desktop-database: omarchy-refresh-applications,
+# run by omarchy-provision-user; pkexec: theme-set-browser, stay-awake, docker TUI)
+desktop-file-utils
+pkexec
+ImageMagick
+socat
+inotify-tools
+xsetroot
+python3
+# Runtime libraries of the userland Ghostty bundle (nothing else pulls them)
+libgtk-4-1
+libappstream5
+libgraphene-1_0-0

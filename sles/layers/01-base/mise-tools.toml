@@ -1,0 +1,22 @@
+# omageeko SLES layer 01: Omarchy's base CLI/TUI set, from mise in userland.
+# On Tumbleweed these are RPMs (packages.map layer 01); on the immutable host they
+# stay out of the snapshot. Installed to ~/.local/share/mise, shims on PATH via
+# Omarchy's env-bootstrap. Deployed as ~/.config/mise/conf.d/omageeko-sles-base.toml.
+[tools]
+bat = "latest"
+btop = "latest"
+eza = "latest"
+fd = "latest"
+fzf = "latest"
+ripgrep = "latest"
+zoxide = "latest"
+starship = "latest"
+fastfetch = "latest"
+lazygit = "latest"
+gum = "latest"
+tealdeer = "latest"
+neovim = "latest"
+tree-sitter = "latest"
+yt-dlp = "latest"
+# Omarchy autostarts `herdr server` (terminal workspace server; native on TW, layer 06)
+herdr = "latest"

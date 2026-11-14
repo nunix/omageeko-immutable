@@ -1,0 +1,19 @@
+--- a/wayland-protocols.spec	2026-11-13 17:40:52.576478588 +0100
++++ b/wayland-protocols.spec	2026-11-13 17:40:52.577366912 +0100
+@@ -58,14 +58,14 @@
+ %autosetup -p1
+ 
+ %build
+-%meson
++%meson -Dtests=false
+ %meson_build
+ 
+ %install
+ %meson_install
+ 
+ %check
+-%meson_test
++# SLES: tests need wayland-scanner >= 1.25 (SLES 16.1 has 1.24)
+ 
+ %files devel
+ %doc README.md GOVERNANCE.md MEMBERS.md

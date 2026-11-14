@@ -1,0 +1,33 @@
+# omageeko-sles-builder: SLES 16.1 toolchain for every omageeko SLES layer. Rebuilds openSUSE's
+# packaging (src.opensuse.org/pool/*) and omageeko's own specs (packages/*) for SLES 16.1.
+# The SCC secrets give container-suseconnect the host's SLES + Package Hub repos.
+# Built by ensure_builder (lib/common.sh); by hand (on a registered SLES host):
+#   podman build -t localhost/omageeko-sles-builder:16.1 \
+#     --secret id=SCCcredentials,src=<copy of /etc/zypp/credentials.d/SCCcredentials> \
+#     --secret id=SUSEConnect,src=<copy of /etc/SUSEConnect> \
+#     sles/builder
+FROM registry.suse.com/bci/bci-base:16.1
+
+LABEL org.opencontainers.image.title="omageeko-sles-builder" \
+      org.opencontainers.image.description="SLES 16.1 RPM build environment for omageeko"
+
+ENV ADDITIONAL_MODULES=PackageHub
+# Tumbleweed builds with GCC 16 (Hyprland 0.57 uses C++26 std::string::subview);
+# SLES defaults to GCC 15 but ships gcc16, and its runtime libstdc++6 is from GCC 16.
+# cmake/meson/autotools pick up CC/CXX.
+ENV CC=gcc-16 CXX=g++-16
+
+# Per-package BuildRequires are installed at build time from each spec; this
+# image only carries the common toolchain. git-lfs: pool repos keep tarballs in LFS.
+RUN --mount=type=secret,id=SCCcredentials,target=/run/secrets/SCCcredentials \
+    --mount=type=secret,id=SUSEConnect,target=/run/secrets/SUSEConnect \
+    zypper --non-interactive --gpg-auto-import-keys refresh \
+ && zypper --non-interactive modifyrepo --all --keep-packages \
+ && zypper --non-interactive install --no-recommends \
+      rpm-build rpmdevtools createrepo_c \
+      gcc-c++ gcc16-c++ make cmake ninja meson pkgconf-pkg-config \
+      git-core git-lfs curl tar gzip xz zstd bzip2 cpio unzip patch which \
+ && git lfs install --system \
+ && zypper clean --all
+
+WORKDIR /build

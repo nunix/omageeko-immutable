@@ -1,0 +1,13 @@
+--- a/lua55.spec	2026-11-13 17:52:27.108309061 +0100
++++ b/lua55.spec	2026-11-13 17:52:27.110581919 +0100
+@@ -54,9 +54,8 @@
+ # PATCH-FIX-UPSTREAM 32bit-check.patch mcepl@suse.com
+ # fix 32-bit integer overflow in str_rep function
+ Patch10:         32bit-check.patch
+-BuildRequires:  lua-interpreter
++# SLES: no lua-interpreter (alts); it clashes with lua54 over /usr/bin/lua{,c}
+ Requires:       alts
+-Requires:       lua-interpreter
+ Provides:       lua = %{version}
+ Provides:       Lua(API) = %{major_version}
+ %if %{with test}

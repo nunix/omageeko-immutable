@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# omarchy:summary=Install Arch packages if they are missing
+# omarchy:args=<packages...>
+# omarchy:examples=omarchy pkg add jq ripgrep
+# omageeko-sles: SLES Immutable port. The host root is read-only, so nothing here
+# touches it: Tumbleweed-name packages (rpm/vendor repo) go into the omageeko-tw
+# distrobox (omageeko-twbox), Flathub apps install per user, Omarchy's Arch-only
+# builds into the Arch box (omageeko-box). Packages the host already has count as
+# present. Host software belongs to the omageeko SLES layers (transactional-update).
+
+source /usr/share/omageeko/lib/pkg.sh
+
+rpms=()
+flatpaks=()
+boxes=()
+for pkg in "$@"; do
+  omageeko_pkg_installed "$pkg" && continue
+  while read -r target; do
+    case "$target" in
+      rpm:*) omageeko_rpm_present "${target#rpm:}" || rpms+=("${target#rpm:}") ;;
+      repo:*)
+        repo=${target#repo:}
+        omageeko-twbox repo "${repo%%:*}" || exit 1
+        omageeko_rpm_present "${repo#*:}" || rpms+=("${repo#*:}")
+        ;;
+      flatpak:*) flatpaks+=("${target#flatpak:}") ;;
+      box:*) boxes+=("${target#box:}") ;;
+      cmd:*)
+        echo -e "\033[31mError: '${target#cmd:}' comes from the omageeko SLES layers (see pkgmap-sles.tsv); rerun them\033[0m" >&2
+        exit 1
+        ;;
+      none:*) ;;
+      skip:*)
+        echo -e "\033[31mError: Package '$pkg' is not available on omageeko (${target#skip:})\033[0m" >&2
+        exit 1
+        ;;
+    esac
+  done < <(omageeko_pkg_resolve "$pkg")
+done
+
+if (( ${#rpms[@]} )); then
+  omageeko-twbox install "${rpms[@]}" || exit 1
+fi
+
+if (( ${#flatpaks[@]} )); then
+  flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || exit 1
+  flatpak install --user --noninteractive flathub "${flatpaks[@]}" || exit 1
+  omageeko_flatpak_session_env
+fi
+
+if (( ${#boxes[@]} )); then
+  omageeko-box install "${boxes[@]}" || exit 1
+fi
+
+for pkg in "$@"; do
+  if ! omageeko_pkg_installed "$pkg"; then
+    echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
+    exit 1
+  fi
+done
+
+exit 0

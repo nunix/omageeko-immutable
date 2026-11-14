@@ -1,0 +1,3 @@
+[submodule "omageeko"]
+	path = omageeko
+	url = https://github.com/nunix/omageeko.git

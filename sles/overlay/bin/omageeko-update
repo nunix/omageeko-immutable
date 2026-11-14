@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# omarchy:summary=Update the system, Omarchy and apps (SLES Immutable)
+# omarchy:args=[--check]
+# omageeko-sles: SLES Immutable port of omageeko-update.
+#   host       transactional-update up (new snapshot, active after reboot)
+#   omageeko   the SLES layers from the checkout (~/omageeko-immutable): Hyprland stack,
+#              built RPMs, the userland Omarchy tree (no reboot for the tree)
+#   apps       mise tools, per-user Flathub apps, the Tumbleweed and Arch boxes
+# --check lists what is pending and changes nothing.
+
+set -uo pipefail
+CHECKOUT=${OMAGEEKO_CHECKOUT:-$HOME/omageeko-immutable}
+check=0
+[[ ${1:-} == --check ]] && check=1
+
+section() { echo -e "\e[32m\n$*\e[0m"; }
+
+if (( check )); then
+  section "Host (SLES)"
+  zypper --non-interactive --quiet list-updates 2>/dev/null | tail -n +3 || echo "  (could not query)"
+  section "Flathub (user)"
+  flatpak remote-ls --user --updates 2>/dev/null || true
+  section "mise"
+  mise outdated 2>/dev/null || true
+  section "Boxes"
+  echo "  Tumbleweed box: $(omageeko-twbox list | wc -l) packages; Arch box: $(omageeko-box list | wc -l) packages"
+  exit 0
+fi
+
+section "Host: transactional-update up"
+sudo transactional-update --non-interactive up
+
+if [[ -d $CHECKOUT/sles/layers ]]; then
+  for layer in 01b-hyprland 02-build-rpms 03-omarchy; do
+    section "omageeko SLES layer $layer"
+    "$CHECKOUT/sles/layers/$layer/install.sh" || echo "omageeko: layer $layer failed" >&2
+  done
+else
+  echo "omageeko: no checkout at $CHECKOUT; skipping the omageeko layers" >&2
+fi
+
+section "mise tools"
+mise upgrade --yes 2>/dev/null || true
+section "Flathub apps (user)"
+flatpak update --user --noninteractive || true
+omageeko-twbox update || true
+omageeko-box update || true
+
+default=$(sudo snapper --csvout list --columns number,default | awk -F, '$2=="yes"{print $1}')
+active=$(sudo snapper --csvout list --columns number,active | awk -F, '$2=="yes"{print $1}')
+if [[ -n $default && $default != "$active" ]]; then
+  echo -e "\e[33m\nA new snapshot is waiting: reboot to activate it.\e[0m"
+fi

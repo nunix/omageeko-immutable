@@ -1,0 +1,28 @@
+# omageeko-sles backport: config/ part of quattro edge 795dfb2 (Files replaces Nautilus).
+# Applied to the tree's config/ and to skel/.config by layer 03; drop with upstream.lock bump.
+diff --git a/config/omarchy/extensions/omarchy-menu.jsonc b/config/omarchy/extensions/omarchy-menu.jsonc
+index 14bb0a3c9..cad512864 100644
+--- a/config/omarchy/extensions/omarchy-menu.jsonc
++++ b/config/omarchy/extensions/omarchy-menu.jsonc
+@@ -19,7 +19,7 @@
+   // Examples:
+   // "personal": {"icon":"","label":"Personal"},
+   // "personal.notes": {"icon":"󰎞","label":"Notes","action":"omarchy-launch-editor ~/notes"},
+-  // "personal.files": {"icon":"","label":"Files","action":"uwsm-app -- nautilus ~/Documents"},
++  // "personal.files": {"icon":"","label":"Files","action":"uwsm-app -- folio ~/Documents"},
+   //
+   // provider can only reference row sources the shell already defines (the
+   // providers map in Menu.qml). Static submenus only need dotted ids.
+diff --git a/config/omarchy/shell.json b/config/omarchy/shell.json
+index 3ede0578d..b2d72a8de 100644
+--- a/config/omarchy/shell.json
++++ b/config/omarchy/shell.json
+@@ -71,7 +71,7 @@
+   "dock": {
+     "position": "bottom",
+     "pinned": [
+-      "org.gnome.Nautilus",
++      "folio",
+       "chromium",
+       "foot",
+       "omacalc",

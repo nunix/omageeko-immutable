@@ -1,0 +1,181 @@
+# omageeko-sles backport: quattro edge 795dfb2 "Replace Nautilus with Files as the file
+# manager" and 744e233 "Open a terminal over Files in the folder it shows", rebased
+# on upstream.lock (v4.5.0 ac2690c). Applied to the userland tree by layer 03
+# (sles/lib/userland.sh) with patch -p1 --fuzz=0. Drop when upstream.lock reaches it.
+# Not included: migrations (layer 04 does the user part), tests, install/*.packages,
+# omarchy-install-gaming-retroarch (stubbed by omageeko).
+diff --git a/bin/omarchy-dock b/bin/omarchy-dock
+index 5c50160cf..10737e253 100755
+--- a/bin/omarchy-dock
++++ b/bin/omarchy-dock
+@@ -3,7 +3,7 @@
+ # omarchy:summary=Configure the dock shown on floating workspaces
+ # omarchy:group=dock
+ # omarchy:args=position [top|bottom|left|right] | autohide [on|off|toggle] | pinned [<desktop-id>...] | pin <desktop-id> | unpin <desktop-id>
+-# omarchy:examples=omarchy dock position left | omarchy dock pin org.gnome.Nautilus
++# omarchy:examples=omarchy dock position left | omarchy dock pin folio
+ 
+ set -euo pipefail
+ 
+diff --git a/bin/omarchy-install-service-dropbox b/bin/omarchy-install-service-dropbox
+index 68cf0fd0d..70c51b97c 100755
+--- a/bin/omarchy-install-service-dropbox
++++ b/bin/omarchy-install-service-dropbox
+@@ -4,7 +4,7 @@
+ # omarchy:requires-sudo=true
+ 
+ echo "Installing all dependencies..."
+-omarchy-pkg-add dropbox dropbox-cli libappindicator python-gpgme nautilus-dropbox
++omarchy-pkg-add dropbox dropbox-cli libappindicator python-gpgme
+ 
+ echo "Adding Dropbox to the bar..."
+ omarchy-plugin-enable omarchy.dropbox
+diff --git a/bin/omarchy-launch-files b/bin/omarchy-launch-files
+new file mode 100755
+index 000000000..203fd1ad5
+--- /dev/null
++++ b/bin/omarchy-launch-files
+@@ -0,0 +1,5 @@
++#!/bin/bash
++
++# omarchy:summary=Launch Files
++
++exec setsid uwsm-app -- folio
+diff --git a/bin/omarchy-launch-files-cwd b/bin/omarchy-launch-files-cwd
+new file mode 100755
+index 000000000..feb09a0cd
+--- /dev/null
++++ b/bin/omarchy-launch-files-cwd
+@@ -0,0 +1,5 @@
++#!/bin/bash
++
++# omarchy:summary=Launch Files in the active terminal's current directory
++
++exec setsid uwsm-app -- folio "$(omarchy-cmd-terminal-cwd)"
+diff --git a/bin/omarchy-launch-nautilus b/bin/omarchy-launch-nautilus
+index 0b10b7b2a..2203e7b79 100755
+--- a/bin/omarchy-launch-nautilus
++++ b/bin/omarchy-launch-nautilus
+@@ -1,5 +1,6 @@
+ #!/bin/bash
+ 
+-# omarchy:summary=Launch Files
++# omarchy:summary=Launch Files (the old name, kept for personal bindings)
++# omarchy:hidden=true
+ 
+-exec setsid uwsm-app -- nautilus --new-window
++exec omarchy-launch-files "$@"
+diff --git a/bin/omarchy-launch-nautilus-cwd b/bin/omarchy-launch-nautilus-cwd
+index ae9a0d885..f4ba11d27 100755
+--- a/bin/omarchy-launch-nautilus-cwd
++++ b/bin/omarchy-launch-nautilus-cwd
+@@ -1,5 +1,6 @@
+ #!/bin/bash
+ 
+-# omarchy:summary=Launch Files in the active terminal's current directory
++# omarchy:summary=Launch Files in the terminal's directory (the old name, kept for personal bindings)
++# omarchy:hidden=true
+ 
+-exec setsid uwsm-app -- nautilus --new-window "$(omarchy-cmd-terminal-cwd)"
++exec omarchy-launch-files-cwd "$@"
+diff --git a/bin/omarchy-theme-bg-install b/bin/omarchy-theme-bg-install
+index 4fc6238f1..fbf364053 100755
+--- a/bin/omarchy-theme-bg-install
++++ b/bin/omarchy-theme-bg-install
+@@ -6,4 +6,4 @@ CURRENT_THEME_NAME=$(cat "$HOME/.local/state/omarchy/current/theme.name")
+ THEME_USER_BACKGROUNDS="$HOME/.config/omarchy/backgrounds/$CURRENT_THEME_NAME"
+ 
+ mkdir -p "$THEME_USER_BACKGROUNDS"
+-nautilus "$THEME_USER_BACKGROUNDS"
++folio "$THEME_USER_BACKGROUNDS"
+diff --git a/default/applications/mimeapps.list b/default/applications/mimeapps.list
+index febb0312b..0ed14a92b 100644
+--- a/default/applications/mimeapps.list
++++ b/default/applications/mimeapps.list
+@@ -1,5 +1,5 @@
+ [Default Applications]
+-inode/directory=org.gnome.Nautilus.desktop
++inode/directory=folio.desktop
+ 
+ image/png=imv.desktop
+ image/jpeg=imv.desktop
+diff --git a/default/hypr/bindings/applications.lua b/default/hypr/bindings/applications.lua
+index 7c25d2116..6292e3371 100644
+--- a/default/hypr/bindings/applications.lua
++++ b/default/hypr/bindings/applications.lua
+@@ -1,8 +1,8 @@
+ -- Essential application bindings.
+ o.bind("SUPER + RETURN", "Terminal", o.launch_terminal())
+ o.bind("SUPER + SHIFT + RETURN", "Browser", { omarchy = "browser" })
+-o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "nautilus" })
+-o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { omarchy = "nautilus-cwd" })
++o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "files" })
++o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { omarchy = "files-cwd" })
+ o.bind("SUPER + SHIFT + B", "Browser", { omarchy = "browser" })
+ o.bind("SUPER + SHIFT + ALT + B", "Browser (private)", { omarchy = "browser --private" })
+ o.bind("SUPER + SHIFT + N", "Editor", { omarchy = "editor" })
+diff --git a/default/hypr/windows.lua b/default/hypr/windows.lua
+index 88040a9a8..f710c8fa5 100644
+--- a/default/hypr/windows.lua
++++ b/default/hypr/windows.lua
+@@ -20,7 +20,7 @@ require("default.hypr.apps")
+ 
+ -- Terminals (including TUIs) and these desktop apps opt in to transparency.
+ o.transparent_window({ tag = "terminal" })
+-o.transparent_window("(omawrite|1[pP]assword|com\\.onepassword\\.OnePassword|org\\.gnome\\.Nautilus)")
++o.transparent_window("(omawrite|1[pP]assword|com\\.onepassword\\.OnePassword|org\\.gnome\\.Nautilus|folio)")
+ 
+ -- The transparency hotkey opts otherwise opaque windows in with this tag.
+ o.transparent_window({ tag = "transparent" })
+diff --git a/bin/omarchy-cmd-terminal-cwd b/bin/omarchy-cmd-terminal-cwd
+index f6a3eb41b..1e07050c3 100755
+--- a/bin/omarchy-cmd-terminal-cwd
++++ b/bin/omarchy-cmd-terminal-cwd
+@@ -1,6 +1,6 @@
+ #!/bin/bash
+ 
+-# omarchy:summary=Print the current working directory of the active terminal window
++# omarchy:summary=Print the current working directory of the active terminal or Files window
+ # omarchy:args=[terminal-pid]
+ # omarchy:hidden=true
+ 
+@@ -8,7 +8,11 @@ terminal_pid=${1:-$(hyprctl activewindow | awk '/pid:/ {print $2}')}
+ kitty_socket="$XDG_RUNTIME_DIR/omarchy-kitty-$terminal_pid"
+ cwd=""
+ 
+-if [[ -S $kitty_socket ]]; then
++# Files keeps its working directory on the folder it shows, so a terminal
++# opened over it starts there.
++if [[ $(readlink "/proc/$terminal_pid/exe" 2>/dev/null) == */folio ]]; then
++  cwd=$(readlink -f "/proc/$terminal_pid/cwd" 2>/dev/null)
++elif [[ -S $kitty_socket ]]; then
+   cwd=$(kitten @ --to "unix:$kitty_socket" ls --match "state:focused" 2>/dev/null |
+     jq -r '.[].tabs[].windows[].cwd // empty')
+ else
+--- a/default/hypr/apps/system.lua
++++ b/default/hypr/apps/system.lua
+@@ -27,6 +27,12 @@
+ o.window("org.omarchy.about", { center = true })
+ o.window("org.omarchy.about", { size = { 920, 480 } })
+ 
++-- Files' Space preview floats over the file manager, larger than the
++-- standard float so pictures and PDFs have room.
++o.window("folio-preview", { float = true })
++o.window("folio-preview", { center = true })
++o.window("folio-preview", { size = { 1100, 760 } })
++
+ o.window("omacalc", { float = true })
+ 
+ -- Fullscreen screensaver.
+--- a/shell/plugins/panels/dropbox/Service.qml
++++ b/shell/plugins/panels/dropbox/Service.qml
+@@ -129,7 +129,8 @@
+ 
+   function openFile(file) {
+     if (!file || !file.path) return
+-    Quickshell.execDetached(["uwsm-app", "--", "nautilus", "--select", fileUri(String(file.path))])
++    // Files opens a file's folder with the file selected.
++    Quickshell.execDetached(["uwsm-app", "--", "folio", String(file.path)])
+   }
+ 
+   function fileUri(path) {

@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "idle": {
+    "screensaver": 150,
+    "lock": 300
+  },
+  "bar": {
+    "position": "top",
+    "background": "opaque",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.menu"
+        },
+        {
+          "id": "omarchy.workspaces",
+          "count": 10
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.clock",
+          "format": "ddd d MMM HH:mm",
+          "formatAlt": "d MMMM 'W'ww yyyy",
+          "verticalFormat": "HH\n\u2014\nmm"
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
+          "id": "clipboard",
+          "type": "command",
+          "exec": "echo \udb80\udd47",
+          "interval": 86400,
+          "tooltip": "Clipboard history (Super+Shift+V)",
+          "onClick": "omarchy-shell shell toggle omarchy.clipboard"
+        },
+        {
+          "id": "omarchy.agents"
+        },
+        {
+          "id": "omarchy.bluetooth"
+        },
+        {
+          "id": "suse-vpn",
+          "type": "command",
+          "exec": "~/.local/bin/suse-vpn status",
+          "interval": 5,
+          "tooltip": "SUSE VPN",
+          "onClick": "~/.local/bin/suse-vpn toggle",
+          "onRightClick": "~/.local/bin/suse-vpn pick"
+        },
+        {
+          "id": "omarchy.network"
+        },
+        {
+          "id": "omarchy.audio"
+        },
+        {
+          "id": "omarchy.monitor"
+        },
+        {
+          "id": "omarchy.power"
+        }
+      ],
+      "centerBegin": [
+        {
+          "id": "omarchy.indicators"
+        }
+      ],
+      "centerEnd": [
+        {
+          "id": "omarchy.elsewhen",
+          "cities": [
+            {
+              "name": "Zurich",
+              "zone": "Europe/Zurich"
+            },
+            {
+              "name": "Delhi",
+              "zone": "Asia/Kolkata"
+            },
+            {
+              "name": "Tokyo",
+              "zone": "Asia/Tokyo"
+            },
+            {
+              "name": "Los Angeles",
+              "zone": "America/Los_Angeles"
+            },
+            {
+              "name": "New York",
+              "zone": "America/New_York"
+            },
+            {
+              "name": "Denver",
+              "zone": "America/Denver",
+              "lat": 39.73915,
+              "lon": -104.9847,
+              "region": "Colorado, US"
+            }
+          ]
+        },
+        {
+          "id": "omarchy.weather"
+        },
+        {
+          "id": "omageeko.session-restore"
+        },
+        {
+          "id": "omarchy.system-update"
+        }
+      ]
+    }
+  },
+  "dock": {
+    "position": "bottom",
+    "pinned": [
+      "folio",
+      "chromium",
+      "foot",
+      "omacalc",
+      "omawrite",
+      "X",
+      "YouTube"
+    ]
+  },
+  "plugins": []
+}

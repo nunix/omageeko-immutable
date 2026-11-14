@@ -1,0 +1,32 @@
+#!/bin/bash
+# What this SLES host lacks for omageeko, without changing anything.
+# Usage: sles/tools/probe              table of every layer's host.packages: installed / available / MISSING
+#        sles/tools/probe --reference  installed package names, sorted (diff two hosts with it)
+set -uo pipefail
+if [[ ${1:-} == --reference ]]; then rpm -qa --qf '%{NAME}\n' | sort -u; exit; fi
+root=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+. /etc/os-release
+echo "== $PRETTY_NAME (${VARIANT_ID:-?}) - $(rpm -qa | wc -l) packages installed"
+echo "== registered products"
+sudo -n SUSEConnect -s 2>/dev/null | python3 -c 'import json,sys
+for p in json.load(sys.stdin): print("  %-22s %-8s %s" % (p["identifier"], p["version"], p["status"]))' 2>/dev/null ||
+  echo "  (SUSEConnect -s unavailable)"
+echo "== tools"
+for c in podman distrobox flatpak transactional-update; do
+  printf '  %-22s %s\n' "$c" "$(PATH="$PATH:/usr/sbin:/sbin" command -v "$c" >/dev/null && echo yes || echo NO)"
+done
+# available = known to the enabled repos (refreshed metadata, no refresh here)
+avail=$(zypper --no-refresh -q search -t package 2>/dev/null | awk -F'|' 'NR>2 {gsub(/ /,"",$2); print $2}' | sort -u)
+missing_total=0
+for f in "$root"/layers/*/host.packages; do
+  layer=$(basename "$(dirname "$f")")
+  echo "== $layer"
+  while read -r p; do
+    if rpm -q --whatprovides "$p" &>/dev/null; then st=installed
+    elif grep -qxF "$p" <<<"$avail"; then st=available
+    else st=MISSING; missing_total=$((missing_total+1)); fi
+    printf '  %-32s %s\n' "$p" "$st"
+  done < <(grep -vE '^[[:space:]]*(#|$)' "$f")
+done
+(( missing_total == 0 )) && echo "== every host package is installed or available" ||
+  echo "== $missing_total package(s) MISSING from the enabled repos"

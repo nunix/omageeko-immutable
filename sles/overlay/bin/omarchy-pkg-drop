@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# omarchy:summary=Remove Arch packages if they are installed
+# omarchy:args=<packages...>
+# omageeko-sles: SLES Immutable port. Removes what omarchy-pkg-add installed: the
+# Tumbleweed box (omageeko-twbox), per-user Flathub apps, the Arch box. Host
+# packages are left alone (they belong to the omageeko SLES layers).
+
+source /usr/share/omageeko/lib/pkg.sh
+
+twbox=()
+flatpaks=()
+boxes=()
+declare -A selected=()
+
+for pkg in "$@"; do
+  while read -r target; do
+    case "$target" in
+      rpm:* | repo:*)
+        name=${target##*:}
+        if [[ -z ${selected[$name]} ]]; then
+          if omageeko-twbox has "$name"; then
+            twbox+=("$name")
+          elif rpm -q -- "$name" &>/dev/null; then
+            echo "omageeko: $name is a host package (SLES layers / transactional-update); left installed" >&2
+          fi
+          selected[$name]=1
+        fi
+        ;;
+      box:*)
+        name=${target#box:}
+        omageeko-box has "$name" && boxes+=("$name")
+        ;;
+      flatpak:*)
+        name=${target#flatpak:}
+        if [[ -z ${selected[$name]} ]] && flatpak info --user "$name" &>/dev/null; then
+          flatpaks+=("$name")
+          selected[$name]=1
+        fi
+        ;;
+    esac
+  done < <(omageeko_pkg_resolve "$pkg")
+done
+
+(( ${#twbox[@]} )) && { omageeko-twbox remove "${twbox[@]}" || exit 1; }
+(( ${#flatpaks[@]} )) && { flatpak uninstall --user --noninteractive "${flatpaks[@]}" || exit 1; }
+(( ${#boxes[@]} )) && { omageeko-box remove "${boxes[@]}" || exit 1; }
+exit 0

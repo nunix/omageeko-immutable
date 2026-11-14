@@ -1,0 +1,28 @@
+# SLES layer 01: host packages, only what the desktop core runs outside a user
+# shell (compositor binds, the Quickshell shell, user services, root helpers).
+# Installed with transactional-update only when the next boot lacks them.
+# CLI/TUI tools are NOT here: they come from mise (mise-tools.toml, userland).
+# Fallback terminal (works even when userland is broken). The default terminal is
+# Ghostty from userland (layer 03); xdg-terminal-exec also comes from userland,
+# since SLES's 2024 snapshot lacks --dir/--print-id (see host.remove)
+foot
+# Wayland helpers used by binds, screenshots, OSD and the clipboard
+wl-clipboard
+wtype
+grim
+slurp
+brightnessctl
+pamixer
+playerctl
+alsa-utils
+# Used by Omarchy scripts everywhere, also from root helpers and services
+jq
+git-core
+unzip
+libnotify-tools
+# Automounting removable drives (Omarchy autostarts `udiskie --automount`; it
+# talks to the host's udisks2 over the system bus)
+udiskie
+# Secrets for browsers and apps (Omarchy's choice; KDE's kwallet stays for Plasma)
+gnome-keyring
+secret-tool

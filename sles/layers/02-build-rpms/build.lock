@@ -1,0 +1,17 @@
+# omageeko SLES layer 02: desktop-critical software SLES doesn't ship.
+# Format: <pool-name> <commit>  (openSUSE packaging, src.opensuse.org/pool)
+#         local <name>          (omageeko's spec, packages/<name>/<name>.spec)
+# Order = build order. Only what the Omarchy desktop itself needs lives here; fonts
+# and the omageeko tree are built by layer 03 and installed in userland.
+# -- SLES 16.1 lacks these build dependencies
+cpptrace 4a08099e907f7bdc0b6afd4283eb5b09e49ee51c82c8144a2bd9c26db8febc83
+gtk4-layer-shell 859ba82754e44c73507613a640b6c3dc573185a88581f019037546d5173d8cc7
+# -- Omarchy desktop
+local quickshell
+local owe
+local omarchy-hyprland-titlebars
+local hyprland-preview-share-picker
+local ttfx
+# Files, Omarchy's file manager from quattro edge (795dfb2); the switch itself is
+# backported by sles/overlay/patches until upstream.lock reaches it
+local folio
