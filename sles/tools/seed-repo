@@ -44,8 +44,10 @@ for r in json.load(sys.stdin):
   tmp=$(mktemp -d /var/tmp/omageeko-seed.XXXXXX)
   trap 'rm -rf "$tmp"' EXIT
   log "Downloading $tag from github.com/$OMAGEEKO_GH_REPO"
-  curl -fL --retry 3 --progress-bar -o "$tmp/$OMAGEEKO_REPO_ASSET" "$url/$OMAGEEKO_REPO_ASSET"
-  curl -fsSL --retry 3 -o "$tmp/SHA256SUMS" "$url/SHA256SUMS"
+  progress=(-sS); [[ -t 2 ]] && progress=(--progress-bar)
+  # --retry-all-errors: a just-published release can 404 for a few seconds
+  curl -fL --retry 5 --retry-all-errors --retry-delay 5 "${progress[@]}" -o "$tmp/$OMAGEEKO_REPO_ASSET" "$url/$OMAGEEKO_REPO_ASSET"
+  curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$tmp/SHA256SUMS" "$url/SHA256SUMS"
   (cd "$tmp" && sha256sum --quiet -c SHA256SUMS) || die "Checksum mismatch for $tag: not seeding"
   bash -c "$receive" < "$tmp/$OMAGEEKO_REPO_ASSET"
   exit 0
