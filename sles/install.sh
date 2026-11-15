@@ -209,7 +209,7 @@ ExecStartPre=+/usr/bin/systemctl start user@$uid.service
 StandardOutput=journal+console
 StandardError=journal+console
 ExecStart=/usr/bin/bash $OMAGEEKO_SLES/install.sh --phase user --yes --from-resume --profile $profile$( (( final_reboot )) || echo ' --no-final-reboot')
-ExecStartPost=+/usr/bin/systemctl disable $RESUME_UNIT
+ExecStartPost=-+/usr/bin/systemctl disable $RESUME_UNIT
 ExecStopPost=+/usr/bin/loginctl disable-linger $USER
 ExecStopPost=+/usr/bin/rm -f $GREETER_HOLD
 TimeoutStartSec=3h
@@ -234,10 +234,14 @@ disarm_resume() {
   if [[ -f /etc/systemd/system/$RESUME_UNIT ]]; then
     sudo systemctl disable "$RESUME_UNIT" 2>/dev/null || true
     sudo rm -f "/etc/systemd/system/$RESUME_UNIT"
-    sudo systemctl daemon-reload
+    # Not from inside the resume unit itself: a daemon-reload after its file is gone makes
+    # systemd forget the running unit's settings (TimeoutStartSec=3h falls back to 90 s) and
+    # kill it on the spot, before the final reboot (run 7). Disabled is enough; the next
+    # boot forgets the unit.
+    (( from_resume )) || sudo systemctl daemon-reload
   fi
   # a failed resume earlier in this boot stays listed as failed (not-found) otherwise
-  sudo systemctl reset-failed "$RESUME_UNIT" 2>/dev/null || true
+  (( from_resume )) || sudo systemctl reset-failed "$RESUME_UNIT" 2>/dev/null || true
 }
 
 do_reboot() {
@@ -335,9 +339,13 @@ finish() {
   report
   sudo rm -f "$STATE"
   rm -f "$GREETER_HOLD"
+  # the greeter check unit first: its daemon-reload is safe while the resume unit's file exists
+  (( from_resume && final_reboot )) && arm_greeter_check
   disarm_resume
   if (( from_resume && final_reboot )); then
-    final_reboot_into_greeter
+    log "Install complete. Final reboot into the greeter; result in /var/lib/omageeko/greeter-check.txt"
+    sudo systemctl reboot
+    exit 0
   fi
   # no greeter this boot (held during a resume, or a rerun after a failed one): start it now
   if ! systemctl is-active -q display-manager.service; then
@@ -349,9 +357,9 @@ finish() {
 # After a resumed (unattended) install: reboot once more, so the machine ends where a person
 # would leave it, and prove the boot path to a working greeter (display-manager.service ->
 # sddm.service on VT1, remembered user). A one-shot unit runs tools/greeter-check after boot
-# and writes /var/lib/omageeko/greeter-check.txt.
+# and writes /var/lib/omageeko/greeter-check.txt (armed by finish(), before disarm_resume).
 GREETER_CHECK_UNIT=omageeko-sles-greeter-check.service
-final_reboot_into_greeter() {
+arm_greeter_check() {
   sudo rm -f /var/lib/omageeko/greeter-check.txt
   sudo install -Dm644 /dev/stdin "/etc/systemd/system/$GREETER_CHECK_UNIT" <<UNIT
 [Unit]
@@ -370,9 +378,6 @@ WantedBy=multi-user.target
 UNIT
   sudo systemctl daemon-reload
   sudo systemctl enable "$GREETER_CHECK_UNIT" 2>/dev/null
-  log "Install complete. Final reboot into the greeter; result in /var/lib/omageeko/greeter-check.txt"
-  sudo systemctl reboot
-  exit 0
 }
 
 # ---- main

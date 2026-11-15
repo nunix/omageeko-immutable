@@ -654,6 +654,19 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   Final rerun: all layers verified, `greeter: ready`, no extra snapshot, no failed units.
   Run 6 needed fixes, so the one-pass proof is run 7.
 
+### Run 7 — 2026-11-15, `sles16.1-run7` (192.168.122.175), SMBIOS product `21K6S0A00C`
+- Everything up to and including verify passed on the first try (layer 04 with the tree-20 patch,
+  layer 05 enabling bt-agent, all seven verify scripts OK, report written).
+- **Then the resume unit was killed** ("start operation timed out. Terminating") before the final
+  reboot, leaving the machine at the text console (greeter still held for this boot). Cause:
+  `finish()` → `disarm_resume` removed the running unit's file and ran `systemctl daemon-reload`;
+  systemd then sees the unit as not-found, its `TimeoutStartSec=3h` falls back to the 90 s default,
+  and the unit had been running for 3.5 min. Runs 4/5 won the race (the reboot got out first).
+  Reproduced with two dummy units on the VM (reload after removing its own file: killed; disable
+  without reload: finished). Fix: no daemon-reload / reset-failed from inside the resume unit, the
+  greeter check unit is armed before disarming, `ExecStartPost=-+…disable` tolerates a missing file.
+  One-pass proof moves to run 8.
+
 ---
 
 ## 10. Plan for run 4: ready for bare metal (written 2026-11-14 after run 3; G1–G4 implemented ✅)

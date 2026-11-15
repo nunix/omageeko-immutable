@@ -83,6 +83,7 @@ set up by `bootstrap.sh` (asks once) if missing.
 | Preflight: Package Hub not registered | add-on skipped in the installer | `sudo SUSEConnect -p PackageHub/16.1/x86_64` (install.sh does it with `--yes`) |
 | Builder: no SCC repos in the container | registration missing / secrets stale | `SUSEConnect -s`; `refresh_scc_secrets` reruns on every layer |
 | Verify failed at the end | see the FAIL lines | fix, then rerun `sles/install.sh`: step marks were cleared, layers are idempotent |
+| \"Failed to start omageeko-sles-resume.service\" (timeout) after \"All layers verified\", text console | daemon-reload after removing the running unit's file (run 7, fixed) | `sudo systemctl start display-manager`; the install itself is complete |
 | No greeter-check file after the final reboot | unit didn't run | `journalctl -b -u omageeko-sles-greeter-check`; run `sles/tools/greeter-check` by hand |
 | Text console, no greeter, after the first reboot | expected: greeter held (`/var/lib/omageeko/greeter-hold`) while the user phase runs | wait; the hold is removed when the resume unit stops (even on failure); `sudo systemctl start display-manager` |
 | `install.state: Permission denied` right after preflight | `/var/lib/omageeko` root-owned (run 4, fixed in `9c8fb98`) | update the checkout |
