@@ -45,7 +45,9 @@ die() { printf '\e[1;31m[omageeko-bootstrap]\e[0m %s\n' "$*" >&2; exit 1; }
 for c in curl tar python3; do command -v "$c" >/dev/null || die "$c is missing"; done
 if ! sudo -n true 2>/dev/null; then
   say "The install needs passwordless sudo for $USER (it continues from a system unit after reboots)."
-  say "Adding /etc/sudoers.d/90-omageeko: '$USER ALL=(ALL) NOPASSWD: ALL'. sudo asks for your password once."
+  say "Adding /etc/sudoers.d/90-omageeko: '$USER ALL=(ALL) NOPASSWD: ALL'."
+  say "sudo asks for a password once: type the one its prompt names ('[sudo] password for $USER' = yours,"
+  say "'[sudo] password for root' = root's, depending on how SLES was installed)."
   echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/90-omageeko >/dev/null ||
     die "sudo failed: is $USER in the wheel group (or allowed by sudoers)?"
   sudo chmod 440 /etc/sudoers.d/90-omageeko

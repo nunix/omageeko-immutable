@@ -23,6 +23,9 @@
 source "$(dirname "$(readlink -f "$0")")/lib/common.sh"
 
 STATE=/var/lib/omageeko/install.state
+# While it exists, sddm.service doesn't start (drop-in written by arm_resume): no greeter while the
+# user phase runs after the first reboot, so nobody logs in to a half-installed session.
+GREETER_HOLD=/var/lib/omageeko/greeter-hold
 RESUME_UNIT=omageeko-sles-resume.service
 L="$OMAGEEKO_SLES/layers"
 
@@ -193,18 +196,29 @@ Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus
 Environment=HOME=$HOME
 ExecStartPre=+/usr/bin/loginctl enable-linger $USER
 ExecStartPre=+/usr/bin/systemctl start user@$uid.service
+# progress on the screen: the greeter is held (GREETER_HOLD) until this ends
+StandardOutput=journal+console
+StandardError=journal+console
 ExecStart=/usr/bin/bash $OMAGEEKO_SLES/install.sh --phase user --yes --from-resume --profile $profile$( (( final_reboot )) || echo ' --no-final-reboot')
 ExecStartPost=+/usr/bin/systemctl disable $RESUME_UNIT
 ExecStopPost=+/usr/bin/loginctl disable-linger $USER
+ExecStopPost=+/usr/bin/rm -f $GREETER_HOLD
 TimeoutStartSec=3h
 
 [Install]
 WantedBy=multi-user.target"
-  log "Arming $RESUME_UNIT for the next boot"
+  log "Arming $RESUME_UNIT for the next boot (greeter held until it ends)"
   tu_run "install -Dm644 /dev/stdin /etc/systemd/system/$RESUME_UNIT <<'OMAGEEKO_EOF'
 $unit
 OMAGEEKO_EOF
+install -Dm644 /dev/stdin /etc/systemd/system/sddm.service.d/50-omageeko-install-hold.conf <<'OMAGEEKO_EOF'
+# omageeko install (sles/install.sh): no greeter while the user phase runs after a reboot.
+# The file exists only during that phase; harmless otherwise.
+[Unit]
+ConditionPathExists=!$GREETER_HOLD
+OMAGEEKO_EOF
 systemctl enable $RESUME_UNIT"
+  touch "$GREETER_HOLD"
 }
 
 disarm_resume() {
@@ -251,6 +265,7 @@ phase_system() {
 
 phase_user() {
   reboot_pending && die "A snapshot is still pending: reboot first (the user phase needs the new host packages)"
+  (( from_resume )) && log "omageeko: finishing the install (user phase, a few minutes). Don't power off: the machine reboots once more into the greeter."
   run_step 01-base.user "$L/01-base/install.sh" --phase user
   run_step 03-omarchy.user "$L/03-omarchy/install.sh" --phase user
   run_step 04-session "$L/04-session/install.sh"
@@ -293,6 +308,7 @@ report() {
 # unit, so a failure at boot can't turn into a rerun/reboot loop.
 verify_failed() {
   sed -i '/^step\./d; /^phase=/d' "$STATE"
+  rm -f "$GREETER_HOLD"
   disarm_resume
   die "Install finished with verify failures. Fix them and rerun sles/install.sh (all layers rerun; unchanged ones are no-ops)."
 }
@@ -300,9 +316,14 @@ verify_failed() {
 finish() {
   report
   sudo rm -f "$STATE"
+  rm -f "$GREETER_HOLD"
   disarm_resume
   if (( from_resume && final_reboot )); then
     final_reboot_into_greeter
+  fi
+  # held this boot and no final reboot: start the greeter now
+  if (( from_resume )) && ! systemctl is-active -q display-manager.service; then
+    sudo systemctl start display-manager.service || warn "Could not start the greeter: sudo systemctl start display-manager"
   fi
   log "Done. Log out/in (or reboot) and pick the Omarchy session."
 }

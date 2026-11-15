@@ -40,7 +40,8 @@ curl -fsSLo /tmp/omageeko-bootstrap.sh https://raw.githubusercontent.com/nunix/o
 bash /tmp/omageeko-bootstrap.sh            # --profile <name> on real hardware, --ref <tag> to pin
 ```
 
-`bootstrap.sh` sets up passwordless sudo if needed (asks once), downloads this repo and the pinned
+`bootstrap.sh` sets up passwordless sudo if needed (asks once for the password sudo's prompt names:
+yours, or root's on some installs), downloads this repo and the pinned
 omageeko submodule to `~/omageeko-immutable`, and starts `install.sh --unattended`:
 
 1. **preflight**: product, registration (adds Package Hub with `--yes`), podman, network, disk, checkout
@@ -48,7 +49,8 @@ omageeko submodule to `~/omageeko-immutable`, and starts `install.sh --unattende
    `--seed none` builds everything locally, ~50 min; `--seed user@host` copies another machine's repo)
 3. **system phase**: layers 00, 01, 01b, 02, 03 into one pending snapshot, then a reboot
 4. **user phase** at boot (`omageeko-sles-resume.service`): 01, 03, 04 user parts, every
-   `verify.sh`, the report (`~/.local/state/omageeko/install-report.txt`)
+   `verify.sh`, the report (`~/.local/state/omageeko/install-report.txt`). The greeter is held
+   back meanwhile (a text console shows the progress), so nobody logs in to a half-installed session
 5. **final reboot** into the greeter; `tools/greeter-check` writes
    `/var/lib/omageeko/greeter-check.txt`, ending in `greeter: ready ...`. Then log in.
 

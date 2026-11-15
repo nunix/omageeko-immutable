@@ -53,9 +53,10 @@ set up by `bootstrap.sh` (asks once) if missing.
      sleep 20
    done
    ```
-   Expected flow (seeded, VM): preflight → seed (download ~0.9 GiB) → 00 ~50 s → 01 system ~15 s →
-   01b ~3 min (builder image, no package builds) → 02 ~25 s → 03 system ~5 s → reboot → 01 user ~45 s
-   → 03 user ~15 s → 04 ~10 s → verify all → report → final reboot → `greeter: ready (...)`.
+   Expected flow (seeded, VM, run 4): preflight → seed ~10 s (0.9 GiB) → 00 ~50 s → 01 system ~15 s →
+   01b ~45 s (builder image, no package builds) → 02 ~25 s → 03 system ~5 s → reboot → (no greeter:
+   text console with progress) 01 user ~45 s → 03 user ~15 s → 04 ~10 s → verify all → report →
+   final reboot → `greeter: ready (...)`. About 5 minutes in total.
    Any `Building <pkg>` line in a seeded run means a stamp mismatch: note which package and why.
 5. **Accept**: every verify OK, `greeter: ready`, then the user's checklist (PLAN R9): first
    login works without anything else, theme intro plays, bar/notifications, Super+Enter Ghostty,
@@ -80,6 +81,8 @@ set up by `bootstrap.sh` (asks once) if missing.
 | Builder: no SCC repos in the container | registration missing / secrets stale | `SUSEConnect -s`; `refresh_scc_secrets` reruns on every layer |
 | Verify failed at the end | see the FAIL lines | fix, then rerun `sles/install.sh`: step marks were cleared, layers are idempotent |
 | No greeter-check file after the final reboot | unit didn't run | `journalctl -b -u omageeko-sles-greeter-check`; run `sles/tools/greeter-check` by hand |
+| Text console, no greeter, after the first reboot | expected: greeter held (`/var/lib/omageeko/greeter-hold`) while the user phase runs | wait; the hold is removed when the resume unit stops (even on failure); `sudo systemctl start display-manager` |
+| `install.state: Permission denied` right after preflight | `/var/lib/omageeko` root-owned (run 4, fixed in `9c8fb98`) | update the checkout |
 
 Recovery when the user account is broken: the root password at the VM console (virt-viewer). The
 SLES guest agent has `guest-exec` disabled and is SELinux-confined, so don't rely on it.

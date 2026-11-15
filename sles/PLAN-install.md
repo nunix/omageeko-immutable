@@ -580,6 +580,19 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   final reboot. About 5 minutes from start to greeter.
 - Report shows `omarchy: v4.5.0 (ac2690c)`. Footprint 1232 packages, snapshots #2–#7 (booted #7),
   no AVC denials, `$HOME`/`authorized_keys` labels correct, resume and greeter-check units removed.
+- Found while preparing run 5 (the user wants bare metal to work first time, with no guessing):
+  1. **A greeter appeared halfway through the install.** After the first reboot SDDM came up while the
+     user phase was still running (~2 min, empty remembered user): on bare metal a person logs in there and fails or
+     lands in a half-installed session. Now `arm_resume` adds an sddm drop-in
+     `ConditionPathExists=!/var/lib/omageeko/greeter-hold` and creates the hold; the resume unit
+     prints to the console and removes the hold when it stops (success or failure). Tested on
+     run 4's VM: sddm "start condition unmet", boot `running`, progress visible on VT1
+     (`/dev/vcs1`), greeter starts once the hold is removed. A condition, not an ordering, so layer
+     04 can't deadlock on sddm.
+  2. **sudo with a password was untested** (run 4 had NOPASSWD set by the user). Tested through a pty:
+     one prompt, then `90-omageeko` (440, `etc_t`) and NOPASSWD work. The prompt was
+     `[sudo] password for nunix` (wheel rule) although SLES defaults to `targetpw`; the message now
+     says to type the password the prompt names.
 
 ---
 
