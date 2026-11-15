@@ -85,7 +85,11 @@ run_step() {
   fi
   log "== $name: start"
   local t0=$SECONDS
-  "$@" || die "Step $name failed (log: $LOG). Fix it and rerun sles/install.sh: it continues from here."
+  # On failure forget the step marks (not the phase): the rerun after a fix repeats this
+  # phase's steps, so a fix anywhere (e.g. in what an earlier step deploys) is picked up.
+  # Layers are idempotent: unchanged ones are no-ops and take no snapshot.
+  "$@" || { sed -i '/^step\./d' "$STATE"; disarm_resume
+            die "Step $name failed (log: $LOG). Fix it and rerun sles/install.sh: it continues with this phase."; }
   state_set "step.$name" "ok $((SECONDS - t0))s"
   log "== $name: done in $((SECONDS - t0))s"
 }
