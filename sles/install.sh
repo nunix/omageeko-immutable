@@ -328,8 +328,8 @@ finish() {
   if (( from_resume && final_reboot )); then
     final_reboot_into_greeter
   fi
-  # held this boot and no final reboot: start the greeter now
-  if (( from_resume )) && ! systemctl is-active -q display-manager.service; then
+  # no greeter this boot (held during a resume, or a rerun after a failed one): start it now
+  if ! systemctl is-active -q display-manager.service; then
     sudo systemctl start display-manager.service || warn "Could not start the greeter: sudo systemctl start display-manager"
   fi
   log "Done. Log out/in (or reboot) and pick the Omarchy session."

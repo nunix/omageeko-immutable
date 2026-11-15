@@ -1,0 +1,19 @@
+# omageeko-sles: omarchy-provision-user hard-codes chromium.desktop as the default browser.
+# SLES installs the host profile's browser (Brave) from Flathub, so on a fresh install
+# chromium.desktop doesn't exist, xdg-settings exits 2 and provisioning aborts (run 6).
+# Use the profile's browser (layer 04 exports OMAGEEKO_BROWSER_DESKTOP) and don't abort.
+# Applied to the userland tree by layer 03 (sles/lib/userland.sh) with patch -p1 --fuzz=0.
+--- a/bin/omarchy-provision-user	2026-11-15 12:56:12.190380398 +0100
++++ b/bin/omarchy-provision-user	2026-11-15 12:56:12.199843728 +0100
+@@ -125,7 +125,10 @@
+ source "$OMARCHY_INSTALL/user/all.sh"
+ 
+ omarchy-refresh-applications
+-env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop
++# omageeko-sles: the host profile picks the browser (layer 04 exports OMAGEEKO_BROWSER_DESKTOP),
++# and SLES installs it from Flathub; an entry that isn't installed must not abort provisioning
++env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "${OMAGEEKO_BROWSER_DESKTOP:-chromium.desktop}" ||
++  echo "omageeko-sles: ${OMAGEEKO_BROWSER_DESKTOP:-chromium.desktop} is not installed; layer 04 sets the default browser" >&2
+ xdg-mime default HEY.desktop x-scheme-handler/mailto
+ 
+ if (( first_install )); then

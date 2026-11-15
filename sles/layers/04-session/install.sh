@@ -31,6 +31,20 @@ mkdir -p "$STATE_DIR/backups"
 export OMARCHY_PATH="$OMARCHY_USER_PATH"
 export PATH="$OMARCHY_PATH/bin:$HOME/.local/bin:$HOME/.local/share/mise/shims:$PATH"
 
+# Host profile browser (sles/hosts/<profile>/browser): Omarchy's names for it. Exported for
+# omarchy-provision-user (sles/overlay/patches/tree-20-*), which would set chromium.desktop.
+browser_file="$OMAGEEKO_SLES/hosts/$PROFILE/browser"
+browser="" browser_cmd="" browser_desktop="" browser_flags=""
+if [[ -f $browser_file ]]; then
+  browser=$(tr -d '[:space:]' < "$browser_file")
+  case $browser in
+    chromium) browser_cmd=chromium browser_desktop=chromium.desktop browser_flags=chromium-flags.conf ;;
+    brave) browser_cmd=brave browser_desktop=brave-browser.desktop browser_flags=brave-flags.conf ;;
+    *) die "Unknown browser in $browser_file: $browser (chromium|brave)" ;;
+  esac
+  export OMAGEEKO_BROWSER_DESKTOP=$browser_desktop
+fi
+
 if [[ ! -f $STATE_DIR/user-provisioned || ${OMAGEEKO_RESET_USER:-0} == 1 ]]; then
   OMARCHY_USER_NAME=${OMAGEEKO_USER_NAME:-$(git config --global user.name || true)}
   OMARCHY_USER_EMAIL=${OMAGEEKO_USER_EMAIL:-$(git config --global user.email || true)}
@@ -138,24 +152,17 @@ fi
 # ---- host profile browser (sles/hosts/<profile>/browser): what omarchy-default-browser
 # does, minus the package (layer 01 installs it from Flathub with the command and desktop
 # alias Omarchy expects). Runs after the skel copy, whose mimeapps.list names chromium.desktop.
-browser_file="$OMAGEEKO_SLES/hosts/$PROFILE/browser"
-if [[ -f $browser_file ]]; then
-  browser=$(tr -d '[:space:]' < "$browser_file")
-  case $browser in
-    chromium) cmd=chromium desktop_id=chromium.desktop flags=chromium-flags.conf ;;
-    brave) cmd=brave desktop_id=brave-browser.desktop flags=brave-flags.conf ;;
-    *) die "Unknown browser in $browser_file: $browser (chromium|brave)" ;;
-  esac
-  [[ -x $HOME/.local/bin/$cmd && -f $HOME/.local/share/applications/$desktop_id ]] ||
+if [[ -n $browser ]]; then
+  [[ -x $HOME/.local/bin/$browser_cmd && -f $HOME/.local/share/applications/$browser_desktop ]] ||
     die "$browser is not set up (sles/layers/01-base installs it from Flathub)"
   # Omarchy's copy_chromium_flags: every Chromium-family browser starts from its flags
-  [[ -f $HOME/.config/$flags ]] || install -Dm644 "$OMARCHY_PATH/config/chromium-flags.conf" "$HOME/.config/$flags"
-  if [[ $(xdg-mime query default x-scheme-handler/https 2>/dev/null) != "$desktop_id" ]]; then
+  [[ -f $HOME/.config/$browser_flags ]] || install -Dm644 "$OMARCHY_PATH/config/chromium-flags.conf" "$HOME/.config/$browser_flags"
+  if [[ $(xdg-mime query default x-scheme-handler/https 2>/dev/null) != "$browser_desktop" ]]; then
     # as omarchy-default-browser: only mimeapps.list may answer xdg-settings' read-back
-    env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$desktop_id" ||
-      xdg-mime default "$desktop_id" x-scheme-handler/http x-scheme-handler/https text/html
-    xdg-mime default "$desktop_id" x-scheme-handler/about x-scheme-handler/unknown
-    log "Default browser: $browser ($desktop_id)"
+    env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$browser_desktop" ||
+      xdg-mime default "$browser_desktop" x-scheme-handler/http x-scheme-handler/https text/html
+    xdg-mime default "$browser_desktop" x-scheme-handler/about x-scheme-handler/unknown
+    log "Default browser: $browser ($browser_desktop)"
   fi
 fi
 

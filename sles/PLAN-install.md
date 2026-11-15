@@ -634,6 +634,19 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   katakana and kanji, and no installed font covered them. Layer 00 adds `google-noto-sans-jp-fonts`
   (JP only, not the whole CJK meta package); on run 5 U+FF71/FF8A/65E5/30FB resolve to Noto Sans CJK JP.
 
+### Run 6 — 2026-11-15, `sles16.1-run6` (192.168.122.125), SMBIOS product `21K6S0A00C`
+- VM with the ThinkPad's DMI product name: the plain bootstrap picked the ThinkPad profile by itself
+  (`host profile: 21K6S0A00C (machine: 21K6S0A00C, virtual)`). Seed (new release with bluez-tools)
+  36 s, 00 52 s, 01 17 s, 01b 45 s, 02 24 s, 03 5 s, **05 system 22 s** (profile packages,
+  omageeko-hardware, bluez-tools, units), greeter held after the reboot, 01 user 46 s (Brave),
+  03 user 17 s.
+- **Failed in layer 04:** `omarchy-provision-user` exit 2. It ends with
+  `xdg-settings set default-web-browser chromium.desktop`; with Brave instead of Chromium there's no
+  chromium.desktop on a fresh install (run 5 still had Chromium, which hid it). Fix: tree patch
+  `tree-20-provision-browser-from-profile` (uses `$OMAGEEKO_BROWSER_DESKTOP`, exported by layer 04
+  from the host profile; never aborts) + `finish()` starts the greeter whenever it isn't running
+  (a manual rerun after a failed resume left the machine at the text console).
+
 ---
 
 ## 10. Plan for run 4: ready for bare metal (written 2026-11-14 after run 3; G1–G4 implemented ✅)
