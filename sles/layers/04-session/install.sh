@@ -186,6 +186,21 @@ if systemctl is-active -q sddm.service && greeter_stale && ! seat0_user_session;
   sudo systemctl restart sddm.service && log "SDDM: greeter restarted to pick up the remembered user"
 fi
 
+# ---- agent skills: sles-atomic (this system, from sles/overlay) and omageeko (its Tumbleweed
+# sibling, shipped in the omageeko RPM), next to Omarchy's own (omarchy-provision-user links those)
+for skill in "$OMAGEEKO_USER_DATA"/agents/skills/*/; do
+  [[ -f $skill/SKILL.md ]] || continue
+  name=$(basename "$skill")
+  for d in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+    mkdir -p "$d"
+    if [[ $(readlink "$d/$name" 2>/dev/null) != "${skill%/}" ]]; then
+      [[ -e $d/$name && ! -L $d/$name ]] && mv "$d/$name" "$d/.$name.bak.$(date +%s)"
+      ln -sfn "${skill%/}" "$d/$name"
+      log "Agent skill $name linked in ${d/#$HOME/\~}"
+    fi
+  done
+done
+
 # Session restore: autosave timer and login offer (docs/session-restore.md)
 systemctl --user daemon-reload
 systemctl --user enable omageeko-session-restore-save.timer omageeko-session-restore-offer.service 2>/dev/null ||

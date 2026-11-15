@@ -41,6 +41,9 @@ if [[ -f $bf ]]; then
   got=$(PATH="$OMARCHY_USER_PATH/bin:$HOME/.local/bin:$PATH" XDG_CURRENT_DESKTOP=Hyprland omarchy-cmd-default-browser 2>/dev/null)
   [[ $got == "$want" || $got == omarchy-browser.desktop ]] && ok "omarchy-cmd-default-browser: $got" || bad "omarchy-cmd-default-browser: '${got:-nothing}' (Super+Shift+B would do nothing)"
 fi
+for skill in sles-atomic omageeko; do
+  [[ -f $HOME/.claude/skills/$skill/SKILL.md ]] && ok "agent skill $skill (~/.claude/skills)" || bad "agent skill $skill not linked in ~/.claude/skills"
+done
 # SELinux labels: $HOME must stay user_home_dir_t, ~/.ssh ssh_home_t, and nothing may
 # carry a /tmp label from a staging dir (breaks sshd and logins)
 [[ $(stat -c %C "$HOME") == *:user_home_dir_t:* ]] && ok "\$HOME label user_home_dir_t" || bad "\$HOME label: $(stat -c %C "$HOME")"

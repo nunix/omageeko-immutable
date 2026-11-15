@@ -666,6 +666,11 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   without reload: finished). Fix: no daemon-reload / reset-failed from inside the resume unit, the
   greeter check unit is armed before disarming, `ExecStartPost=-+…disable` tolerates a missing file.
   One-pass proof moves to run 8.
+- **Agent skills (2026-11-15):** new `sles-atomic` skill (sles/overlay/share/agents/skills): the
+  omageeko skill's structure with immutable priorities (host only through layers/transactional-update;
+  apps: host layers → mise → Flathub --user → Tumbleweed box → Arch box → podman → host via a layer).
+  Layer 04 links it and the omageeko skill (already deployed by layer 03) into ~/.claude/skills and
+  ~/.agents/skills; 04 verify checks both. Tested on sles16.1-fresh.
 
 ---
 

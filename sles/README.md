@@ -72,7 +72,8 @@ sles/builder/Containerfile      the SLES BCI builder image (all layers)
 sles/lib/common.sh              helpers (SCC secrets, local repo + tukit bind, tu_run, lock builds, installs)
 sles/lib/build-pkg.sh           builds one pool package or local spec in the builder
 sles/lib/userland.sh            option B: unpack RPMs, deploy the Omarchy tree into $HOME
-sles/overlay/                   SLES replacements laid over the userland tree (pkg-add, update, twbox)
+sles/overlay/                   SLES replacements laid over the userland tree (pkg-add, update, twbox),
+                                patches, and the sles-atomic agent skill (share/agents/skills, linked by layer 04)
 sles/hosts/<profile>/           per-machine user files, theme/terminal/browser (layer 04), host.packages (layer 05);
                                 picked by DMI product name (sles/hosts/21K6S0A00C = ThinkPad P14s Gen 4), else kvm-guest
 sles/install.sh                 orchestrator: preflight, seed, phases, resume after reboot, verify, report, final reboot

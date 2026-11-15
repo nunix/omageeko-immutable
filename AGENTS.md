@@ -27,6 +27,14 @@ omageeko (Omarchy's Hyprland desktop on openSUSE) on **SLES 16.1 Immutable**. Re
 - Deleting a test VM: `virsh undefine <vm> --nvram --tpm --storage vda`, never
   `--remove-all-storage` (it deletes the shared installer ISO).
 
+## Skills on an installed system
+
+Layer 04 links two agent skills into `~/.claude/skills` and `~/.agents/skills`: **`sles-atomic`**
+(`sles/overlay/share/agents/skills/sles-atomic`, this system: userland-first app placement,
+transactional updates, immutable facts, hardware, the checkout) and **`omageeko`** (the Tumbleweed
+sibling's skill from the omageeko RPM, for background; `sles-atomic` wins where they disagree).
+Keep `sles-atomic` in step when the layers change.
+
 ## Installing omageeko on a SLES machine
 
 Use the skill `.claude/skills/install-omageeko-immutable/SKILL.md`. Short form: the user runs
