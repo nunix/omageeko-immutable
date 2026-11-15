@@ -671,6 +671,12 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   apps: host layers → mise → Flathub --user → Tumbleweed box → Arch box → podman → host via a layer).
   Layer 04 links it and the omageeko skill (already deployed by layer 03) into ~/.claude/skills and
   ~/.agents/skills; 04 verify checks both. Tested on sles16.1-fresh.
+  The omageeko skill describes Tumbleweed's system paths; on SLES omageeko lives in userland, so
+  layer 03 adapts the deployed copy (`adapt_agent_skills`): besides rewrite_paths
+  (/usr/share/omarchy|omageeko → ~/.local/share/...), /usr/share/uwsm/env.d → ~/.config/uwsm/env.d,
+  /etc/mise/conf.d → ~/.config/mise/conf.d, systemd user units → ~/.config/systemd/user, plus a note
+  that sles-atomic wins. Host-RPM paths (omageeko-hardware) and /var/lib/omageeko stay. Every
+  rewritten path checked to exist on sles16.1-fresh.
 
 ---
 

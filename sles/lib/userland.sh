@@ -55,6 +55,27 @@ local_rpm() {
   echo "$best"
 }
 
+# adapt_agent_skills <skills-dir>: the omageeko skill (from the omageeko RPM) is written for
+# Tumbleweed, where omageeko lives in system paths. rewrite_paths already points /usr/share/omarchy
+# and /usr/share/omageeko at the userland tree; here the files layer 03 deploys to user config
+# instead of /etc and /usr/share/uwsm (deploy_user_integration) get their userland path too, and the
+# skill says that sles-atomic wins on this system. System paths of host RPMs (omageeko-hardware:
+# /usr/libexec/omageeko, wireplumber labels) and /var/lib/omageeko stay: they're real here.
+adapt_agent_skills() {
+  local dir="$1" cfg="${XDG_CONFIG_HOME:-$HOME/.config}" f
+  [[ -d $dir/omageeko ]] || return 0
+  grep -rlIE '/usr/share/uwsm/env\.d|/etc/mise/conf\.d|/(usr/lib|etc)/systemd/user' "$dir/omageeko" 2>/dev/null |
+    xargs -r sed -i -E \
+      -e "s#/usr/share/uwsm/env\.d#$cfg/uwsm/env.d#g" \
+      -e "s#/etc/mise/conf\.d#$cfg/mise/conf.d#g" \
+      -e "s#/(usr/lib|etc)/systemd/user#$cfg/systemd/user#g"
+  f="$dir/omageeko/SKILL.md"
+  if [[ -f $f ]] && ! grep -q 'omageeko-sles:' "$f"; then
+    # after the front matter (second "---" line)
+    awk 'BEGIN{n=0} {print} /^---$/ && ++n==2 {print ""; print "> omageeko-sles: on this machine (SLES 16.1 Immutable, omageeko-immutable) this skill is"; print "> background about the Tumbleweed sibling. Paths below point at the userland tree. The"; print "> **sles-atomic** skill wins wherever they disagree: no zypper on the host, no vendor repos on"; print "> the host, updates through transactional-update and the SLES layers."}' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  fi
+}
+
 # rewrite_paths <dir|file>... : point packaged paths at the userland tree.
 #   /usr/share/omarchy (not omarchy-platform) -> ~/.local/share/omarchy
 #   /usr/share/omageeko                       -> ~/.local/share/omageeko
@@ -109,6 +130,7 @@ deploy_omarchy_tree() {
       die "Backport $(basename "$p") no longer applies to skel"
   done
   rewrite_paths "$OMAGEEKO_USER_DATA.new"
+  adapt_agent_skills "$OMAGEEKO_USER_DATA.new/agents/skills"
 
   [[ -d $OMARCHY_USER_PATH ]] && mv "$OMARCHY_USER_PATH" "$old"
   mv "$new" "$OMARCHY_USER_PATH"
