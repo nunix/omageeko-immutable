@@ -630,6 +630,9 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   has kernel-firmware-all + ucode-amd. Rehearsed on run 5's VM with `OMAGEEKO_HOST_PROFILE=21K6S0A00C`:
   bluez-tools built in 19 s, one snapshot, verify all OK after the reboot, rerun = no snapshot, no
   failed units; the profile's Hyprland config verifies like the live one.
+- **R9: the matrix screensaver drew boxes** ("?" diamonds): tte's matrix effect uses half-width
+  katakana and kanji, and no installed font covered them. Layer 00 adds `google-noto-sans-jp-fonts`
+  (JP only, not the whole CJK meta package); on run 5 U+FF71/FF8A/65E5/30FB resolve to Noto Sans CJK JP.
 
 ---
 

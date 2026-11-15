@@ -36,7 +36,10 @@ hicolor-icon-theme
 fontconfig
 google-noto-sans-fonts
 google-noto-coloremoji-fonts
-# Flatpak (Chromium, Flathub targets of omarchy pkg add)
+# Japanese (kana + kanji): the matrix screensaver (tte) draws half-width katakana;
+# without it they render as boxes. JP only: covers the screensaver and kana/kanji text.
+google-noto-sans-jp-fonts
+# Flatpak (Brave, Flathub targets of omarchy pkg add)
 flatpak
 # Commands Omarchy scripts call (update-desktop-database: omarchy-refresh-applications,
 # run by omarchy-provision-user; pkexec: theme-set-browser, stay-awake, docker TUI)
