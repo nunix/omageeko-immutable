@@ -646,6 +646,13 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   `tree-20-provision-browser-from-profile` (uses `$OMAGEEKO_BROWSER_DESKTOP`, exported by layer 04
   from the host profile; never aborts) + `finish()` starts the greeter whenever it isn't running
   (a manual rerun after a failed resume left the machine at the text console).
+- Recovery on the same VM (as on bare metal: rerun the bootstrap one-liner): the rerun skipped layer
+  03 (marked ok), so 04 failed again on the old tree. Fix: a failed step clears the step marks (and
+  disarms the resume unit); the next rerun repeated the phase. Its verify then found two more gaps,
+  both fixed: no greeter when rerunning after a failed resume (the user phase now starts it unless
+  held), and `bt-agent.service` (user) only enabled by Omarchy at first login (layer 05 enables it).
+  Final rerun: all layers verified, `greeter: ready`, no extra snapshot, no failed units.
+  Run 6 needed fixes, so the one-pass proof is run 7.
 
 ---
 

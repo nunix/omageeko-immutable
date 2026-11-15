@@ -284,6 +284,11 @@ phase_user() {
   # (the user phase may run from a system unit, whose /tmp files get other labels)
   log "Restoring SELinux labels under $HOME"
   sudo /usr/sbin/restorecon -R "$HOME"
+  # No greeter this boot and none held (a rerun after a failed resume): start it, so verify
+  # sees the real state and the machine ends at a login screen
+  if [[ ! -e $GREETER_HOLD ]] && ! systemctl is-active -q display-manager.service; then
+    sudo systemctl start display-manager.service && log "Greeter started" || warn "Could not start the greeter"
+  fi
   state_set phase user-done
 }
 

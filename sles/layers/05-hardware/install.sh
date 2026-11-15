@@ -47,8 +47,15 @@ if [[ $PHASE != user ]]; then
   [[ $PHASE == system ]] && { finish_layer "sles/layers/05-hardware/install.sh --phase user"; exit 0; }
 fi
 
-# ---- user: monitor wake kick (the host profile's monitor list arrives with layer 04)
+# ---- user: Bluetooth pairing agent and monitor wake kick
 systemctl --user daemon-reload
+# Omarchy enables bt-agent.service at the first login (install/user/first-run); enable it now
+# so pairing works from that login on and verify can check it
+if systemctl --user cat bt-agent.service &>/dev/null && ! systemctl --user is-enabled -q bt-agent.service 2>/dev/null; then
+  systemctl --user enable bt-agent.service
+  log "Bluetooth pairing agent (bt-agent.service) enabled"
+fi
+# the host profile's monitor list arrives with layer 04
 if [[ -f $HOME/.config/omageeko/monitor-wake-kick ]]; then
   if ! systemctl --user is-enabled -q omageeko-monitor-wake-kick.service 2>/dev/null; then
     systemctl --user enable omageeko-monitor-wake-kick.service
