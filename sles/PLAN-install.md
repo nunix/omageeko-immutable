@@ -18,6 +18,7 @@ install. Everything below is a plan: no code from it exists yet unless marked �
 > Checked on `sles16.1-fresh`: rerun = no seed, no build, no snapshot, no reboot, all verify OK.
 > **Run 4 (2026-11-14, `sles16.1-run4`):** bootstrap one-liner only → `greeter: ready` after one bug fix
 > (`/var/lib/omageeko` ownership on a pristine machine, §9 run 4). R9 user checklist pending, then bare metal.
+> **Run 5 (2026-11-15, `sles16.1-run5`): passed first try, no fixes**, with the greeter hold (§9 run 5). Next: R9 checklist, then bare metal.
 
 Read first: `sles/README.md`, `docs/sles16-immutable-assessment.md`, each layer's `NOTES.md`.
 
@@ -593,6 +594,20 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
      one prompt, then `90-omageeko` (440, `etc_t`) and NOPASSWD work. The prompt was
      `[sudo] password for nunix` (wheel rule) although SLES defaults to `targetpw`; the message now
      says to type the password the prompt names.
+
+### Run 5 — 2026-11-15, `sles16.1-run5` (192.168.122.71), bootstrap one-liner from the console
+- Fresh minimal install by the user. The user ran the one-liner on the VM console before I was
+  connected. Code at `5e1a117` (greeter hold). **Passed first try, no fixes, no manual step.**
+- After the first reboot: `sddm` inactive with the hold in place (no greeter mid-install); the resume
+  banner and progress went to the console. After the final reboot: `greeter: ready (user nunix,
+  session Omarchy)`; the user was already logged in on seat0 when the check ran.
+- Install 10:49:48 → 10:54:21, greeter check 10:55:07. Timings: seed 19 s · 00 53 s · 01 system
+  17 s · 01b 46 s · 02 26 s · 03 system 5 s · reboot · 01 user 48 s · 03 user 16 s · 04 10 s.
+- Footprint 1232 packages, snapshot #7, no AVC denials, labels correct, units cleaned up.
+- Not exercised in this run: bootstrap's sudo setup (the user had already put a NOPASSWD rule in
+  `/etc/sudoers.d/nunix`). That path was tested separately through a pty on run 4's VM.
+- Cosmetic: an empty `/var/lib/omageeko/repo.before-seed.*` is left behind (the empty repo dir
+  that `ensure_local_repo` created, moved aside by the seed). Harmless.
 
 ---
 
