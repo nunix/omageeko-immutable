@@ -18,7 +18,8 @@ install. Everything below is a plan: no code from it exists yet unless marked �
 > Checked on `sles16.1-fresh`: rerun = no seed, no build, no snapshot, no reboot, all verify OK.
 > **Run 4 (2026-11-14, `sles16.1-run4`):** bootstrap one-liner only → `greeter: ready` after one bug fix
 > (`/var/lib/omageeko` ownership on a pristine machine, §9 run 4). R9 user checklist pending, then bare metal.
-> **Run 5 (2026-11-15, `sles16.1-run5`): passed first try, no fixes**, with the greeter hold (§9 run 5). Next: R9 checklist, then bare metal.
+> **Run 5 (2026-11-15, `sles16.1-run5`): passed first try, no fixes**, with the greeter hold (§9 run 5).
+> **Run 8 (2026-11-15): passed in one go with the final code** (Brave, layer 05, ThinkPad profile, skills; §9 run 8). Next: bare metal.
 
 Read first: `sles/README.md`, `docs/sles16-immutable-assessment.md`, each layer's `NOTES.md`.
 
@@ -677,6 +678,14 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   /etc/mise/conf.d → ~/.config/mise/conf.d, systemd user units → ~/.config/systemd/user, plus a note
   that sles-atomic wins. Host-RPM paths (omageeko-hardware) and /var/lib/omageeko stay. Every
   rewritten path checked to exist on sles16.1-fresh.
+
+### Run 8 — 2026-11-15, `sles16.1-run8`, SMBIOS product `21K6S0A00C`: **passed in one go**
+- Fresh minimal install by the user (the first attempt was recreated after a sudoers mistake during
+  setup, before anything ran). The plain bootstrap one-liner, no flags, no manual step: ThinkPad
+  profile picked from the DMI name, all layers incl. 05 installed, greeter held, final reboot into
+  the greeter, first login fine; the user found no major issue. This is the one-pass proof the
+  bare-metal install waited for. Next: the ThinkPad itself, on a new NVMe, from the USB stick
+  (SLES ISO + OMAGEEKO handoff partition). Agent onboarding: `docs/agent-onboarding.md`.
 
 ---
 

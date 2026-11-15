@@ -1,6 +1,7 @@
 # Agent guide: omageeko-immutable
 
-omageeko (Omarchy's Hyprland desktop on openSUSE) on **SLES 16.1 Immutable**. Read `README.md`,
+omageeko (Omarchy's Hyprland desktop on openSUSE) on **SLES 16.1 Immutable**. New here, or no memory of
+this project? Start with [`docs/agent-onboarding.md`](docs/agent-onboarding.md). Read `README.md`,
 `sles/README.md` and `sles/PLAN-install.md` (§9 results, §10 current plan) before changing anything.
 
 ## Rules (do not relitigate)
