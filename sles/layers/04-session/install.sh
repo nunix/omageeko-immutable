@@ -114,7 +114,7 @@ if [[ -d $PROFILE_DIR ]]; then
     dst="$HOME/$rel"
     cmp -s "$f" "$dst" 2>/dev/null && continue
     [[ -e $dst ]] && cp -a --no-preserve=context,xattr "$dst" "$dst.bak.$(date +%s)"
-    install -Dm644 "$f" "$dst"
+    if [[ -x $f ]]; then install -Dm755 "$f" "$dst"; else install -Dm644 "$f" "$dst"; fi
     log "Host profile $PROFILE: $rel"
   done < <(find "$PROFILE_DIR" -type f -print0)
 fi

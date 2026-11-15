@@ -18,3 +18,7 @@ sof-firmware
 # External monitor brightness (Omarchy's omarchy-brightness-display-ddc); access via
 # omageeko-hardware's uaccess rule for display I2C buses
 ddcutil
+# SUSE InfraVPN (OpenVPN through NetworkManager; ~/.local/bin/suse-vpn). The server asks for a
+# dynamic OTP (CRV1): even `nmcli --ask` needs nm-openvpn-auth-dialog from the applet package.
+NetworkManager-openvpn
+NetworkManager-applet-openvpn

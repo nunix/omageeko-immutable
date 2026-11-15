@@ -34,3 +34,8 @@ and the BLE privacy timer enabled.
 Manual after the install: fingerprint enrollment (`omarchy-setup-security-fingerprint`; on a
 reinstall first `sles/tools/fprint-clear-storage --wipe`: the sensor keeps the old prints),
 Bluetooth pairing (MX Master / MX Keys reconnect after sleep thanks to the privacy timer).
+
+SUSE InfraVPN: `home/.local/bin/suse-vpn` (bar widget `suse-vpn` in shell.json) plus the
+NetworkManager-openvpn packages in `host.packages`. The secrets are not in the repo: download the
+`.ovpn`, `SUSE_Trust_Root.crt` and `ta.key` together, then `suse-vpn setup ~/Downloads/*.ovpn`
+(installs them into /etc/openvpn, imports the profile, adds the NetworkManager polkit rule).

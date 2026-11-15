@@ -1,0 +1,140 @@
+#!/bin/bash
+# SUSE InfraVPN through NetworkManager-openvpn, for the bar widget "suse-vpn" (shell.json).
+#   suse-vpn status              bar text: 󰌾 <site> connected, 󰔟 connecting, 󰌿 off
+#   suse-vpn toggle              disconnect, or connect the default (last used) profile
+#   suse-vpn connect [name]      connect (asks for user, password and OTP in a terminal)
+#   suse-vpn disconnect
+#   suse-vpn pick                menu: choose a site, or disconnect
+#   suse-vpn user <name>         store the VPN user name in every profile
+#   suse-vpn setup <file.ovpn>…  import profiles; installs the ca/ta files they name (looked up next
+#                                to the .ovpn) into /etc/openvpn, and the polkit rule. Needs sudo.
+# Host packages (ThinkPad host.packages): NetworkManager-openvpn, NetworkManager-applet-openvpn.
+# The server sends a dynamic OTP challenge (CRV1); without nm-openvpn-auth-dialog the log shows
+# "secrets: failed to request VPN secrets" right after "Enter Your OTP Code". A plain AUTH_FAILED
+# after the OTP step means the code was rejected (use the SUSEID authenticator entry).
+# Secrets (ta.key) live only in /etc/openvpn, never in a repo. Don't use `nmcli -s` here: it needs
+# settings.modify.system and brings back password prompts.
+set -euo pipefail
+
+prefix=InfraVPN_
+state=${XDG_STATE_HOME:-$HOME/.local/state}/suse-vpn
+polkit_rule=/etc/polkit-1/rules.d/49-networkmanager-local-users.rules
+
+vpns() {
+  nmcli -t -f NAME,TYPE connection show 2>/dev/null |
+    awk -F: -v p="$prefix" '$2 == "vpn" && index($1, p) == 1 { print $1 }'
+}
+# "<name>:<state>" of the active InfraVPN profile, if any
+active() {
+  nmcli -t -f NAME,TYPE,STATE connection show --active 2>/dev/null |
+    awk -F: -v p="$prefix" '$2 == "vpn" && index($1, p) == 1 { print $1 ":" $3; exit }'
+}
+default_vpn() {
+  local d
+  d=$(cat "$state/default" 2>/dev/null || true)
+  if [[ -n $d ]] && vpns | grep -qxF "$d"; then echo "$d"; else vpns | head -1; fi
+}
+site() { local s=${1#"$prefix"}; echo "${s##*_}"; }  # InfraVPN_Access_Corp_CZ -> CZ
+
+connect() {
+  local name=${1:-$(default_vpn)}
+  [[ -n $name ]] || { echo "No InfraVPN profile: run suse-vpn setup <file.ovpn>" >&2; exit 1; }
+  mkdir -p "$state" && echo "$name" > "$state/default"
+  if [[ -t 0 ]]; then
+    exec nmcli --ask connection up id "$name"
+  fi
+  # From the bar: nmcli asks for the OTP on a terminal, so give it one
+  exec omarchy-launch-floating-terminal-with-presentation "nmcli --ask connection up id $(printf %q "$name")"
+}
+
+disconnect() {
+  local a
+  a=$(active)
+  [[ -n $a ]] && nmcli connection down id "${a%:*}" >/dev/null
+  true
+}
+
+setup() {
+  (( $# )) || { echo "Usage: suse-vpn setup <file.ovpn>..." >&2; exit 1; }
+  local f dir name key file
+  sudo install -d -m 755 /etc/openvpn
+  for f in "$@"; do
+    [[ -f $f ]] || { echo "No such file: $f" >&2; exit 1; }
+    dir=$(cd "$(dirname "$f")" && pwd)
+    name=$(basename "$f" .ovpn)
+    # ca/ta named in the profile: copy into /etc/openvpn (ta.key root-only)
+    while read -r key file _; do
+      [[ $file == /* ]] || file=$dir/$file
+      if [[ -f $file ]]; then
+        if [[ $key == tls-auth ]]; then
+          sudo install -m 600 "$file" "/etc/openvpn/$(basename "$file")"
+        else
+          sudo install -m 644 "$file" "/etc/openvpn/$(basename "$file")"
+        fi
+      elif [[ ! -f /etc/openvpn/$(basename "$file") ]]; then
+        echo "$name: $key file $(basename "$file") not found next to $f nor in /etc/openvpn" >&2; exit 1
+      fi
+    done < <(grep -E '^\s*(ca|tls-auth)\s' "$f")
+    sudo restorecon -R /etc/openvpn
+
+    while nmcli -t -f NAME connection show | grep -qxF "$name"; do
+      nmcli connection delete id "$name" >/dev/null
+    done
+    nmcli connection import type openvpn file "$f" >/dev/null
+    # Point at /etc/openvpn (the import keeps the download paths), ask for secrets every time
+    local ca ta mods=(connection.autoconnect no +vpn.data password-flags=2)
+    ca=$(awk '$1 == "ca" { print $2 }' "$f")
+    ta=$(awk '$1 == "tls-auth" { print $2 }' "$f")
+    [[ -n $ca ]] && mods+=(+vpn.data "ca=/etc/openvpn/$(basename "$ca")")
+    [[ -n $ta ]] && mods+=(+vpn.data "ta=/etc/openvpn/$(basename "$ta")")
+    nmcli connection modify id "$name" "${mods[@]}"
+    echo "Imported $name"
+  done
+
+  if ! sudo test -f "$polkit_rule"; then
+    # Active local sessions may manage NetworkManager without a password (single-user laptop);
+    # 49 runs before openSUSE's 90-default-privs.rules
+    sudo tee "$polkit_rule" >/dev/null <<'EOF'
+polkit.addRule(function(action, subject) {
+  if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 && subject.local && subject.active) {
+    return polkit.Result.YES;
+  }
+});
+EOF
+    sudo chmod 644 "$polkit_rule"
+    sudo restorecon "$polkit_rule"
+    echo "Installed $polkit_rule"
+  fi
+  [[ -f $state/user ]] && "$0" user "$(cat "$state/user")"
+  true
+}
+
+case ${1:-status} in
+  status)
+    a=$(active)
+    case ${a##*:} in
+      activated) echo "󰌾 $(site "${a%:*}")" ;;
+      activating) echo "󰔟 $(site "${a%:*}")" ;;
+      *) echo "󰌿" ;;
+    esac ;;
+  toggle) if [[ -n $(active) ]]; then disconnect; else connect; fi ;;
+  connect) connect "${2:-}" ;;
+  disconnect) disconnect ;;
+  pick)
+    opts=()
+    while read -r v; do opts+=("󰖂	$v"); done < <(vpns)
+    [[ -n $(active) ]] && opts+=("󰌿	Disconnect")
+    (( ${#opts[@]} )) || { notify-send "SUSE VPN" "No profile: run suse-vpn setup <file.ovpn>"; exit 1; }
+    choice=$(omarchy-menu-select "SUSE VPN" "${opts[@]}") || exit 0
+    case $choice in
+      "") ;;
+      Disconnect) disconnect ;;
+      *) disconnect; connect "$choice" ;;
+    esac ;;
+  user)
+    [[ -n ${2:-} ]] || { echo "Usage: suse-vpn user <name>" >&2; exit 1; }
+    mkdir -p "$state" && echo "$2" > "$state/user"
+    while read -r v; do nmcli connection modify id "$v" +vpn.data "username=$2"; done < <(vpns) ;;
+  setup) shift; setup "$@" ;;
+  *) sed -n '2,10p' "$0" | sed 's/^# \?//' >&2; exit 1 ;;
+esac
