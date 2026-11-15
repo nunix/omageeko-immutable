@@ -86,6 +86,9 @@ set up by `bootstrap.sh` (asks once) if missing.
 | "Failed to start omageeko-sles-resume.service" (timeout) after "All layers verified", text console | daemon-reload after removing the running unit's file (run 7, fixed) | `sudo systemctl start display-manager`; the install itself is complete |
 | No greeter-check file after the final reboot | unit didn't run | `journalctl -b -u omageeko-sles-greeter-check`; run `sles/tools/greeter-check` by hand |
 | Text console, no greeter, after the first reboot | expected: greeter held (`/var/lib/omageeko/greeter-hold`) while the user phase runs | wait; the hold is removed when the resume unit stops (even on failure); `sudo systemctl start display-manager` |
+| No Wi-Fi on the ThinkPad, `ath11k_pci: failed to initialize qmi handle: -517` | `qrtr`/`qrtr-mhi` only in `kernel-default-extra` (run 9) | in the profile's `host.packages` now; rerun layer 05, reboot |
+| A layer run on its own applies `kvm-guest` on real hardware | profile defaulted to kvm-guest outside `install.sh` (run 9, fixed) | `lib/common.sh` picks the DMI profile; or `OMAGEEKO_HOST_PROFILE=<name>` |
+| `omageeko-monitor-wake-kick.service` 203/EXEC restart loop | unit rewritten to the userland tree, binary is in host RPM omageeko-hardware (run 9, fixed) | rerun layer 03 `--phase user`, then `systemctl --user daemon-reload` |
 | `install.state: Permission denied` right after preflight | `/var/lib/omageeko` root-owned (run 4, fixed in `9c8fb98`) | update the checkout |
 
 Recovery when the user account is broken: the root password at the VM console (virt-viewer). The

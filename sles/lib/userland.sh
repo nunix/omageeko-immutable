@@ -164,6 +164,16 @@ deploy_user_integration() {
   cp -a --no-preserve=context,xattr "$stage"/usr/lib/systemd/user/. "$cfg/systemd/user/"
   cp -a --no-preserve=context,xattr "$stage"/etc/systemd/user/. "$cfg/systemd/user/"
   rewrite_paths "$cfg/systemd/user"
+  # Some omageeko-* commands come from host RPMs, not the userland tree (omageeko-hardware:
+  # /usr/bin/omageeko-monitor-wake-kick). rewrite_paths pointed their units at the tree, where
+  # the binary doesn't exist (203/EXEC restart loop, first bare-metal run); point them back.
+  local u exe
+  for u in "$cfg"/systemd/user/*.service; do
+    [[ -f $u && ! -L $u ]] || continue
+    exe=$(sed -n -E 's/^ExecStart=[-@+!:]*([^ ]+).*/\1/p' "$u" | head -n1)
+    [[ $exe == "$OMARCHY_USER_PATH"/bin/* && ! -e $exe && -x /usr/bin/${exe##*/} ]] || continue
+    sed -i "s#$exe#/usr/bin/${exe##*/}#g" "$u"
+  done
 
   # Session environment: uwsm reads env.d from $XDG_CONFIG_HOME as well
   mkdir -p "$cfg/uwsm/env.d"

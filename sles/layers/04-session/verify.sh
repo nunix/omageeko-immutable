@@ -33,9 +33,18 @@ fi
 bf="$OMAGEEKO_SLES/hosts/${OMAGEEKO_HOST_PROFILE:-kvm-guest}/browser"
 if [[ -f $bf ]]; then
   case $(tr -d '[:space:]' < "$bf") in brave) want=brave-browser.desktop ;; chromium) want=chromium.desktop ;; *) want=? ;; esac
+  # Upstream migration 1791934674 (first login) writes ~/.config/hyprland-mimeapps.list, which
+  # routes http(s) through omarchy-browser.desktop (omarchy-launch-browser) and is read before
+  # mimeapps.list; the real default browser stays in mimeapps.list. Accept that routing when
+  # mimeapps.list names the profile's browser.
   for scheme in http https; do
     got=$(xdg-mime query default x-scheme-handler/$scheme 2>/dev/null)
-    [[ $got == "$want" ]] && ok "default browser for $scheme: $got" || bad "default browser for $scheme is '${got:-none}', host profile wants $want"
+    if [[ $got == omarchy-browser.desktop ]]; then
+      base=$(sed -n "s|^x-scheme-handler/$scheme=||p" "$HOME/.config/mimeapps.list" 2>/dev/null | head -n1)
+      [[ ${base%%;*} == "$want" ]] && ok "default browser for $scheme: $got -> $want" || bad "default browser for $scheme: $got routes to '${base:-none}' (mimeapps.list), host profile wants $want"
+    else
+      [[ $got == "$want" ]] && ok "default browser for $scheme: $got" || bad "default browser for $scheme is '${got:-none}', host profile wants $want"
+    fi
   done
   # what Super+Shift+B and web apps use: Omarchy's own lookup, in the session's PATH
   got=$(PATH="$OMARCHY_USER_PATH/bin:$HOME/.local/bin:$PATH" XDG_CURRENT_DESKTOP=Hyprland omarchy-cmd-default-browser 2>/dev/null)

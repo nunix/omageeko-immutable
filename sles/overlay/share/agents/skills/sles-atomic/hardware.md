@@ -23,6 +23,8 @@ Edit the profile in the checkout, then rerun layer 04 (user files) or 05 (packag
 
 - Firmware is in a minimal SLES (`kernel-firmware-all`, `ucode-amd`): Radeon 780M, Qualcomm
   QCNFA765 Wi-Fi/BT (ath11k), ACP audio, Realtek dock NICs.
+- Wi-Fi (ath11k) needs `qrtr`/`qrtr-mhi`, which SLES ships only in `kernel-default-extra`
+  (unsupported modules, `allow_unsupported_modules 1`; the user accepted that). It's in `host.packages`.
 - Profile packages: fprintd, fprintd-pam, libfprint (Goodix 27c6:6594), bolt, fwupd, sof-firmware, ddcutil.
 - Desk: DP-8 (C27G7) | DP-9 + HDMI-A-1 (Odyssey G9 picture-by-picture halves), eDP-1 below;
   names come from the dock's DP MST: check `hyprctl monitors` and adjust `monitors.lua`.

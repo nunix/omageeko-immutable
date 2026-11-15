@@ -1,6 +1,10 @@
 # Host packages for the Lenovo ThinkPad P14s Gen 4 (AMD), layer 05 (one snapshot).
 # Firmware for its devices (amdgpu, ath11k Wi-Fi, QCA Bluetooth, ACP audio, Realtek
 # dock NICs) and ucode-amd are already in a minimal SLES 16.1 (kernel-firmware-all).
+# Wi-Fi: ath11k (QCNFA765/WCN6855) needs qrtr + qrtr-mhi for QMI, and SLES ships them only in
+# kernel-default-extra (unsupported modules; the package sets allow_unsupported_modules 1).
+# Without it: "ath11k_pci: failed to initialize qmi handle: -517" and no wlan device.
+kernel-default-extra
 # Goodix 27c6:6594 fingerprint reader (enrol: omarchy-setup-security-fingerprint)
 fprintd
 fprintd-pam

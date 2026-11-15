@@ -7,6 +7,14 @@ set -euo pipefail
 # omageeko/ (git submodule: the main omageeko repo - shared specs, upstream.lock, packages.map).
 OMAGEEKO_IMM="${OMAGEEKO_IMM:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 OMAGEEKO_SLES="$OMAGEEKO_IMM/sles"
+# Host profile, also for layers run on their own: $OMAGEEKO_HOST_PROFILE (install.sh exports it,
+# --profile wins there), else the machine's model (sles/hosts/<DMI product name>), else kvm-guest.
+# Without this a standalone layer 04/05 on the ThinkPad silently used kvm-guest (first bare-metal run).
+if [[ -z ${OMAGEEKO_HOST_PROFILE:-} ]]; then
+  OMAGEEKO_HOST_PROFILE=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+  [[ -n $OMAGEEKO_HOST_PROFILE && -d $OMAGEEKO_SLES/hosts/$OMAGEEKO_HOST_PROFILE ]] || OMAGEEKO_HOST_PROFILE=kvm-guest
+fi
+export OMAGEEKO_HOST_PROFILE
 OMAGEEKO_ROOT="${OMAGEEKO_ROOT:-$OMAGEEKO_IMM/omageeko}"
 # pkg_dir <name>: a spec in this repo wins over the submodule's
 pkg_dir() {

@@ -25,5 +25,7 @@ done
 systemctl --user is-enabled -q bt-agent.service 2>/dev/null && ok "bt-agent.service (user) enabled" || bad "bt-agent.service (user) not enabled"
 if [[ -f $HOME/.config/omageeko/monitor-wake-kick ]]; then
   systemctl --user is-enabled -q omageeko-monitor-wake-kick.service && ok "monitor wake kick enabled" || bad "monitor wake kick not enabled"
+  exe=$(systemctl --user show -P ExecStart omageeko-monitor-wake-kick.service | sed -n 's/.*path=\([^ ;]*\).*/\1/p')
+  [[ -x $exe ]] && ok "monitor wake kick runs $exe" || bad "monitor wake kick ExecStart '${exe:-?}' missing (203/EXEC loop)"
 fi
 exit $fail

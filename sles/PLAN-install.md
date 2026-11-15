@@ -687,6 +687,35 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   bare-metal install waited for. Next: the ThinkPad itself, on a new NVMe, from the USB stick
   (SLES ISO + OMAGEEKO handoff partition). Agent onboarding: `docs/agent-onboarding.md`.
 
+### Run 9 — 2026-11-15, bare metal: ThinkPad P14s Gen 4 (`21K6S0A00C`, hostname `atomix`), new NVMe
+- SLES 16.1 Online installer from the USB stick, Immutable, SCC + Package Hub, podman pattern;
+  then the plain bootstrap one-liner on the console. Code `f20fdc3` (omageeko `26324fe`), GitHub seed.
+- **Install passed first time:** 20:53:57 → 20:58:30 (seed 19 s, 00 28 s, 01 8 s, 01b 29 s, 02 15 s,
+  03 3 s, 05 12 s, then user phase: 01 73 s, 03 11 s, 04 10 s, 05 0 s), `greeter: ready (user nunix,
+  session Omarchy)`, no failed units. Footprint 1243 packages, snapshot 9. Hyprland 0.57.2,
+  Omarchy v4.5.0.
+- Hardware OK: Radeon 780M, dock ethernet, three screens (DP-8, DP-9, eDP-1; HDMI-A-1 = the G9's
+  other PbP half wasn't connected), Bluetooth + bt-agent, Goodix 27c6:6594 seen by fprintd (not
+  enrolled yet), audio (laptop, dock, Yeti GX, StreamCam), power-profiles-daemon, ddcutil sees the
+  G9 (DP-9), s2idle.
+- Found after the first login, all fixed in the checkout:
+  - **No Wi-Fi:** `ath11k_pci: failed to initialize qmi handle: -517`. ath11k needs `qrtr` +
+    `qrtr-mhi`, which SLES ships only in `kernel-default-extra` (unsupported modules; the package
+    sets `allow_unsupported_modules 1`). Added to the profile's `host.packages` (the user accepted
+    the support caveat); applied by layer 05 as snapshot 10, active after a reboot.
+  - **Wake kick in a 203/EXEC restart loop:** `rewrite_paths` pointed the user unit at
+    `~/.local/share/omarchy/bin/omageeko-monitor-wake-kick`, but the binary comes from the host RPM
+    `omageeko-hardware` (`/usr/bin`). `deploy_user_integration` now points such units back at
+    `/usr/bin`; layer 05 verify checks the ExecStart exists, not only "enabled".
+  - **Layer 04 verify false FAIL on the default browser:** upstream migration 1791934674 (first
+    login, so after the install's verify) writes `~/.config/hyprland-mimeapps.list` routing http(s)
+    through `omarchy-browser.desktop`. Verify now follows it to `mimeapps.list` (Brave).
+  - **Standalone layer runs used `kvm-guest`:** layers 04/05 and their verify defaulted to
+    `kvm-guest` unless run through `install.sh`, so layer 05 alone on the ThinkPad installed
+    nothing. `lib/common.sh` now resolves the profile from the DMI name like `install.sh`.
+- Still for the user: reboot into snapshot 10 (Wi-Fi), enrol the fingerprint, pair the MX devices,
+  suspend/resume with the dock, the G9 wake kick after deep standby.
+
 ---
 
 ## 10. Plan for run 4: ready for bare metal (written 2026-11-14 after run 3; G1–G4 implemented ✅)
