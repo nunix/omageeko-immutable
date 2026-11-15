@@ -236,6 +236,8 @@ disarm_resume() {
     sudo rm -f "/etc/systemd/system/$RESUME_UNIT"
     sudo systemctl daemon-reload
   fi
+  # a failed resume earlier in this boot stays listed as failed (not-found) otherwise
+  sudo systemctl reset-failed "$RESUME_UNIT" 2>/dev/null || true
 }
 
 do_reboot() {
