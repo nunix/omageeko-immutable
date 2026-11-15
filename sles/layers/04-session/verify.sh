@@ -30,6 +30,17 @@ if [[ -f $tm ]]; then
   id=$("$HOME/.local/bin/xdg-terminal-exec" --print-id 2>/dev/null)
   [[ $id == *"$(tr -d '[:space:]' < "$tm")"* ]] && ok "default terminal: $id" || bad "default terminal is '${id:-none}', host profile wants $(cat "$tm")"
 fi
+bf="$OMAGEEKO_SLES/hosts/${OMAGEEKO_HOST_PROFILE:-kvm-guest}/browser"
+if [[ -f $bf ]]; then
+  case $(tr -d '[:space:]' < "$bf") in brave) want=brave-browser.desktop ;; chromium) want=chromium.desktop ;; *) want=? ;; esac
+  for scheme in http https; do
+    got=$(xdg-mime query default x-scheme-handler/$scheme 2>/dev/null)
+    [[ $got == "$want" ]] && ok "default browser for $scheme: $got" || bad "default browser for $scheme is '${got:-none}', host profile wants $want"
+  done
+  # what Super+Shift+B and web apps use: Omarchy's own lookup, in the session's PATH
+  got=$(PATH="$OMARCHY_USER_PATH/bin:$HOME/.local/bin:$PATH" XDG_CURRENT_DESKTOP=Hyprland omarchy-cmd-default-browser 2>/dev/null)
+  [[ $got == "$want" || $got == omarchy-browser.desktop ]] && ok "omarchy-cmd-default-browser: $got" || bad "omarchy-cmd-default-browser: '${got:-nothing}' (Super+Shift+B would do nothing)"
+fi
 # SELinux labels: $HOME must stay user_home_dir_t, ~/.ssh ssh_home_t, and nothing may
 # carry a /tmp label from a staging dir (breaks sshd and logins)
 [[ $(stat -c %C "$HOME") == *:user_home_dir_t:* ]] && ok "\$HOME label user_home_dir_t" || bad "\$HOME label: $(stat -c %C "$HOME")"

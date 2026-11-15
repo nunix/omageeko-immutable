@@ -8,12 +8,24 @@ Status: **applied and verified 2026-11-13** (host packages in snapshot #5 → ac
   15 base CLI tools from aqua/GitHub releases (prebuilt, nothing compiled).
 - Fonts: `symbols-only-nerd-fonts`, `fontawesome-fonts` unpacked from SLES RPMs into
   `~/.local/share/fonts` inside the builder (`sles_payload`), never installed on the host.
-- Chromium: Flathub, `--user`. `~/.local/bin/chromium` + hidden `chromium.desktop` alias give
-  Omarchy's names a target (web apps run the first word of chromium.desktop's Exec);
-  `chromium-flags.conf` is linked into `~/.var/app/org.chromium.Chromium/config` and the
-  userland tree is exposed read-only for Omarchy's bundled extensions.
+- Browser: **Brave** (since 2026-11-15, the user's choice; Chromium before), Flathub `--user`
+  (`com.brave.Browser`). `~/.local/bin/brave` + hidden `brave-browser.desktop` alias give
+  Omarchy's names a target (web apps run the first word of the entry's Exec, which can't be
+  `flatpak`). Layer 04 sets it as the default from the host profile file `browser` and creates
+  `~/.config/brave-flags.conf` from Omarchy's chromium flags. The flags file and the userland tree
+  (bundled extensions) reach the sandbox through `flatpak override --filesystem` only.
+  Chromium works the same way when listed in `user-flatpaks`.
 
 ## Findings
+- **Run 5: the browser never started.** `chromium-flags.conf` was symlinked into
+  `~/.var/app/org.chromium.Chromium/config` *and* exposed with `--filesystem=xdg-config/...`.
+  Flatpak 1.16 also mounts xdg-config paths into the per-app config dir, onto the symlink: bwrap
+  failed ("Can't create file at …/chromium-flags.conf"), the launcher exited 1, so Super+Shift+B
+  did nothing and `git`'s HTTPS device login couldn't open a page. The symlink is gone (removed on
+  rerun); verify now starts each browser's sandbox (`flatpak run --command=true`).
+- `cp -a --no-preserve=context` still copies the SELinux label (it's an xattr): fonts copied from
+  a /tmp stage kept `user_tmp_t` when the layer ran alone. All stage copies use
+  `--no-preserve=context,xattr` now (layers 01/03/04); `install.sh`'s final restorecon used to hide it.
 - SLES's `gnome-themes-extras` is the GNOME 2 theme set (Darklooks, Unity, ...), not Arch's
   `gnome-themes-extra`. Not needed: GTK 3.24/4 have Adwaita-dark built in.
 - SLES doesn't index file capabilities like `/usr/bin/secret-tool`: use package names.

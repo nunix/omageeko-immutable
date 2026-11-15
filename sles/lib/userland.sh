@@ -6,7 +6,7 @@ OMARCHY_USER_PATH="$HOME/.local/share/omarchy"
 OMAGEEKO_USER_DATA="$HOME/.local/share/omageeko"
 
 # rpm_payload <outdir> <rpm>... : unpack RPM payloads into <outdir> (no install)
-# Stages live in /tmp: copies out of them use --no-preserve=context, or their
+# Stages live in /tmp: copies out of them use --no-preserve=context,xattr (context alone still copies the label xattr), or their
 # *_tmp_t labels end up on files (and, through layer 04, on $HOME itself).
 rpm_payload() {
   local out="$1"; shift
@@ -76,11 +76,11 @@ rewrite_paths() {
 deploy_omarchy_tree() {
   local stage="$1" new="$OMARCHY_USER_PATH.new" old="$OMARCHY_USER_PATH.old"
   rm -rf "$new" "$old"
-  cp -a --no-preserve=context "$stage/usr/share/omarchy" "$new"
+  cp -a --no-preserve=context,xattr "$stage/usr/share/omarchy" "$new"
   # Packaged bin/ holds symlinks to /usr/bin; userland needs the real scripts, since
   # omarchy-security-functions trusts only $OMARCHY_PATH/bin/<cmd> outside /usr/bin
   find "$new/bin" -maxdepth 1 -type l -delete
-  cp -a --no-preserve=context "$stage"/usr/bin/omarchy-* "$stage"/usr/bin/omageeko-* "$new/bin/"
+  cp -a --no-preserve=context,xattr "$stage"/usr/bin/omarchy-* "$stage"/usr/bin/omageeko-* "$new/bin/"
   # Backports from upstream edge (sles/overlay/patches): tree-* on the tree,
   # config-* on its config/ (skel/.config gets them below)
   local p
@@ -90,7 +90,7 @@ deploy_omarchy_tree() {
   done
   chmod 755 "$new"/bin/*
   # SLES Immutable replacements and additions (package management, updates)
-  cp -a --no-preserve=context "$OMAGEEKO_SLES"/overlay/bin/. "$new/bin/"
+  cp -a --no-preserve=context,xattr "$OMAGEEKO_SLES"/overlay/bin/. "$new/bin/"
   rewrite_paths "$new"
   # env-bootstrap prepends $OMARCHY_PATH/bin only in dev-link mode; userland always needs it
   sed -i -E 's#^if \[ "\$OMARCHY_PATH" != [^]]+ \]; then$#if [ -n "$OMARCHY_PATH" ]; then  \# omageeko-sles: commands live in $OMARCHY_PATH/bin, not /usr/bin#' \
@@ -99,10 +99,10 @@ deploy_omarchy_tree() {
     die "env-bootstrap layout changed upstream; update deploy_omarchy_tree"
 
   rm -rf "$OMAGEEKO_USER_DATA.new"
-  cp -a --no-preserve=context "$stage/usr/share/omageeko" "$OMAGEEKO_USER_DATA.new"
-  cp -a --no-preserve=context "$OMAGEEKO_SLES"/overlay/share/. "$OMAGEEKO_USER_DATA.new/"
+  cp -a --no-preserve=context,xattr "$stage/usr/share/omageeko" "$OMAGEEKO_USER_DATA.new"
+  cp -a --no-preserve=context,xattr "$OMAGEEKO_SLES"/overlay/share/. "$OMAGEEKO_USER_DATA.new/"
   # skel (rewritten) for layer 04's user reset
-  cp -a --no-preserve=context "$stage/etc/skel" "$OMAGEEKO_USER_DATA.new/skel"
+  cp -a --no-preserve=context,xattr "$stage/etc/skel" "$OMAGEEKO_USER_DATA.new/skel"
   for p in "$OMAGEEKO_SLES"/overlay/patches/config-*.patch; do
     [[ -e $p ]] || continue
     apply_patch "$OMAGEEKO_USER_DATA.new/skel/.config" 2 "$p" ||
@@ -127,9 +127,9 @@ deploy_user_integration() {
   # Fonts, icons
   mkdir -p "$data/fonts" "$data/icons"
   for f in "$stage"/usr/share/fonts/*; do
-    [[ -d $f ]] && cp -a --no-preserve=context "$f" "$data/fonts/"
+    [[ -d $f ]] && cp -a --no-preserve=context,xattr "$f" "$data/fonts/"
   done
-  [[ -d $stage/usr/share/icons/hicolor ]] && cp -a --no-preserve=context "$stage/usr/share/icons/hicolor" "$data/icons/"
+  [[ -d $stage/usr/share/icons/hicolor ]] && cp -a --no-preserve=context,xattr "$stage/usr/share/icons/hicolor" "$data/icons/"
 
   # Default applications and terminal preference
   # From the (backport-patched) tree, which is what the RPM installs too
@@ -139,20 +139,20 @@ deploy_user_integration() {
 
   # systemd user units (and the keep-shell drop-in for the uwsm-managed compositor)
   mkdir -p "$cfg/systemd/user"
-  cp -a --no-preserve=context "$stage"/usr/lib/systemd/user/. "$cfg/systemd/user/"
-  cp -a --no-preserve=context "$stage"/etc/systemd/user/. "$cfg/systemd/user/"
+  cp -a --no-preserve=context,xattr "$stage"/usr/lib/systemd/user/. "$cfg/systemd/user/"
+  cp -a --no-preserve=context,xattr "$stage"/etc/systemd/user/. "$cfg/systemd/user/"
   rewrite_paths "$cfg/systemd/user"
 
   # Session environment: uwsm reads env.d from $XDG_CONFIG_HOME as well
   mkdir -p "$cfg/uwsm/env.d"
-  cp -a --no-preserve=context "$stage"/usr/share/uwsm/env.d/. "$cfg/uwsm/env.d/"
+  cp -a --no-preserve=context,xattr "$stage"/usr/share/uwsm/env.d/. "$cfg/uwsm/env.d/"
   rewrite_paths "$cfg/uwsm/env.d"
 
   # /etc defaults with user-level equivalents
   mkdir -p "$cfg/mise/conf.d" "$cfg/fontconfig/conf.d" "$cfg/xkb"
-  cp -a --no-preserve=context "$stage"/etc/mise/conf.d/. "$cfg/mise/conf.d/"
+  cp -a --no-preserve=context,xattr "$stage"/etc/mise/conf.d/. "$cfg/mise/conf.d/"
   install -Dm644 "$stage/usr/share/fontconfig/conf.avail/50-omarchy.conf" "$cfg/fontconfig/conf.d/50-omarchy.conf"
-  cp -a --no-preserve=context "$stage"/etc/xkb/. "$cfg/xkb/"
+  cp -a --no-preserve=context,xattr "$stage"/etc/xkb/. "$cfg/xkb/"
   [[ -f $cfg/fastfetch/config.jsonc ]] || install -Dm644 "$stage/etc/fastfetch/config.jsonc" "$cfg/fastfetch/config.jsonc"
   rewrite_paths "$cfg/mise/conf.d" "$cfg/fastfetch"
 
@@ -173,11 +173,11 @@ deploy_ghostty() {
   rpm_payload "$stage" "$rpm"
   rm -rf "$new"
   mkdir -p "$new"
-  cp -a --no-preserve=context "$stage/usr/." "$new/"
+  cp -a --no-preserve=context,xattr "$stage/usr/." "$new/"
   # libadwaita from SLES (data-only unpack, no host install) + RPATH in the builder
   sles_payload "$stage/adw" libadwaita-1-0
   mkdir -p "$new/lib"
-  cp -a --no-preserve=context "$stage"/adw/usr/lib64/libadwaita-1.so.0* "$new/lib/"
+  cp -a --no-preserve=context,xattr "$stage"/adw/usr/lib64/libadwaita-1.so.0* "$new/lib/"
   podman run --rm --security-opt label=disable "${SCC_RUN_ARGS[@]}" -v "$new:/g" \
     -v "$BUILDER_CACHE_VOLUME:/var/cache/zypp" "$BUILDER_IMAGE" bash -c '
       zypper --non-interactive --quiet --gpg-auto-import-keys refresh >/dev/null 2>&1 || true
@@ -201,8 +201,8 @@ deploy_ghostty() {
   for f in "$GHOSTTY_HOME"/share/systemd/user/*.service "$GHOSTTY_HOME"/lib/systemd/user/*.service; do
     [[ -e $f ]] && sed "s#/usr/bin/ghostty#$GHOSTTY_HOME/bin/ghostty#g" "$f" > "$cfg/systemd/user/$(basename "$f")"
   done
-  [[ -d $GHOSTTY_HOME/share/icons/hicolor ]] && cp -a --no-preserve=context "$GHOSTTY_HOME/share/icons/hicolor" "$data/icons/"
-  [[ -d $GHOSTTY_HOME/share/terminfo ]] && cp -a --no-preserve=context "$GHOSTTY_HOME"/share/terminfo/. "$HOME/.terminfo/"
+  [[ -d $GHOSTTY_HOME/share/icons/hicolor ]] && cp -a --no-preserve=context,xattr "$GHOSTTY_HOME/share/icons/hicolor" "$data/icons/"
+  [[ -d $GHOSTTY_HOME/share/terminfo ]] && cp -a --no-preserve=context,xattr "$GHOSTTY_HOME"/share/terminfo/. "$HOME/.terminfo/"
   systemctl --user daemon-reload 2>/dev/null || true
   update-desktop-database "$data/applications" 2>/dev/null || true
 }

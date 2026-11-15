@@ -59,7 +59,7 @@ if [[ ! -f $STATE_DIR/user-provisioned || ${OMAGEEKO_RESET_USER:-0} == 1 ]]; the
   # owner and SELinux label. On the first minimal-VM run that put a /tmp label
   # on $HOME: sshd refused the key and logins failed.
   shopt -s dotglob nullglob
-  for entry in "$SKEL"/*; do cp -af --no-preserve=context "$entry" "$HOME/"; done
+  for entry in "$SKEL"/*; do cp -af --no-preserve=context,xattr "$entry" "$HOME/"; done
   shopt -u dotglob nullglob
 
   # A fresh account has nothing to migrate: mark every shipped migration done
@@ -99,7 +99,7 @@ if [[ -d $PROFILE_DIR ]]; then
     rel=${f#"$PROFILE_DIR"/}
     dst="$HOME/$rel"
     cmp -s "$f" "$dst" 2>/dev/null && continue
-    [[ -e $dst ]] && cp -a --no-preserve=context "$dst" "$dst.bak.$(date +%s)"
+    [[ -e $dst ]] && cp -a --no-preserve=context,xattr "$dst" "$dst.bak.$(date +%s)"
     install -Dm644 "$f" "$dst"
     log "Host profile $PROFILE: $rel"
   done < <(find "$PROFILE_DIR" -type f -print0)
@@ -132,6 +132,30 @@ if [[ -f $term_file ]]; then
   if [[ $(cat "$HOME/.config/xdg-terminals.list" 2>/dev/null) != "$desktop_id" ]]; then
     echo "$desktop_id" > "$HOME/.config/xdg-terminals.list"
     log "Default terminal: $term ($desktop_id)"
+  fi
+fi
+
+# ---- host profile browser (sles/hosts/<profile>/browser): what omarchy-default-browser
+# does, minus the package (layer 01 installs it from Flathub with the command and desktop
+# alias Omarchy expects). Runs after the skel copy, whose mimeapps.list names chromium.desktop.
+browser_file="$OMAGEEKO_SLES/hosts/$PROFILE/browser"
+if [[ -f $browser_file ]]; then
+  browser=$(tr -d '[:space:]' < "$browser_file")
+  case $browser in
+    chromium) cmd=chromium desktop_id=chromium.desktop flags=chromium-flags.conf ;;
+    brave) cmd=brave desktop_id=brave-browser.desktop flags=brave-flags.conf ;;
+    *) die "Unknown browser in $browser_file: $browser (chromium|brave)" ;;
+  esac
+  [[ -x $HOME/.local/bin/$cmd && -f $HOME/.local/share/applications/$desktop_id ]] ||
+    die "$browser is not set up (sles/layers/01-base installs it from Flathub)"
+  # Omarchy's copy_chromium_flags: every Chromium-family browser starts from its flags
+  [[ -f $HOME/.config/$flags ]] || install -Dm644 "$OMARCHY_PATH/config/chromium-flags.conf" "$HOME/.config/$flags"
+  if [[ $(xdg-mime query default x-scheme-handler/https 2>/dev/null) != "$desktop_id" ]]; then
+    # as omarchy-default-browser: only mimeapps.list may answer xdg-settings' read-back
+    env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$desktop_id" ||
+      xdg-mime default "$desktop_id" x-scheme-handler/http x-scheme-handler/https text/html
+    xdg-mime default "$desktop_id" x-scheme-handler/about x-scheme-handler/unknown
+    log "Default browser: $browser ($desktop_id)"
   fi
 fi
 

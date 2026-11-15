@@ -17,7 +17,7 @@ changes through `transactional-update` snapshots. Assessment and decisions:
 | Layer | Status | What | Host footprint |
 |---|---|---|---|
 | [`00-bootstrap`](layers/00-bootstrap/) | new 2026-11-14 | desktop base a minimal install lacks (audio, graphics, services, portals, fonts, Flatpak); SDDM (Omarchy Wayland greeter + theme via `omageeko-sles-sddm`); graphical target; rebootmgr off | ~40 packages + deps (minimal installs only) |
-| [`01-base`](layers/01-base/) | verified | 17 host packages (terminal, Wayland helpers, jq/git, keyring, udiskie); mise + 16 CLI tools (incl. herdr); fonts; Flathub Chromium | 17 packages |
+| [`01-base`](layers/01-base/) | verified | 17 host packages (terminal, Wayland helpers, jq/git, keyring, udiskie); mise + 16 CLI tools (incl. herdr); fonts; Flathub Brave (default browser, web apps) | 17 packages |
 | [`01b-hyprland`](layers/01b-hyprland/) | verified | Hyprland 0.57.2 stack rebuilt from openSUSE's packaging | 25 packages, 3 replaced (xkbcommon) |
 | [`02-build-rpms`](layers/02-build-rpms/) | verified | quickshell, owe/owe-lockfeed, titlebars plugin, share picker, ttfx, Files (folio) | 7 packages + deps |
 | [`03-omarchy`](layers/03-omarchy/) | verified | Omarchy in `~/.local/share/omarchy` (option B) + SLES overlay; Ghostty bundle in `~/.local/opt/ghostty` (default terminal) | `omageeko-sles` (session entry, lock PAM) + `omageeko-sles-sddm` (greeter config, theme) |

@@ -1,4 +1,5 @@
 # SLES layer 01: apps from Flathub, installed per user (--user remote "flathub").
-# Chromium is Omarchy's default browser and web-app runtime; install.sh adds the
-# `chromium` command and the chromium.desktop alias Omarchy expects.
-org.chromium.Chromium
+# Brave is the default browser and the web-app runtime (host profile file "browser",
+# layer 04); install.sh adds the `brave` command and the brave-browser.desktop alias
+# Omarchy expects. org.chromium.Chromium works the same way if listed here.
+com.brave.Browser

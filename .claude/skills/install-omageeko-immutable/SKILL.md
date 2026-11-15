@@ -60,8 +60,8 @@ set up by `bootstrap.sh` (asks once) if missing.
    Any `Building <pkg>` line in a seeded run means a stamp mismatch: note which package and why.
 5. **Accept**: every verify OK, `greeter: ready`, then the user's checklist (PLAN R9): first
    login works without anything else, theme intro plays, bar/notifications, Super+Enter Ghostty,
-   Super+Shift+F Files, Super+Space menu, screensaver, lock/unlock, audio OSD, Super+Shift+Enter
-   Chromium, `omarchy pkg add qrencode` → Tumbleweed box, logout. Footprint: `rpm -qa | wc -l`
+   Super+Shift+F Files, Super+Space menu, screensaver, lock/unlock, audio OSD, Super+Shift+B
+   Brave (default browser; `git` HTTPS login opens it), `omarchy pkg add qrencode` → Tumbleweed box, logout. Footprint: `rpm -qa | wc -l`
    (~1232), `snapper list`.
 6. **Record** the run in `sles/PLAN-install.md` §9 (setup, timings from the report, footprint,
    surprises and fixes) and the memory file, then commit when the user asks.

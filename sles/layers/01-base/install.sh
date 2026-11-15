@@ -72,9 +72,9 @@ mapfile -t data < <(list "$LAYER_DIR/user-data.packages")
 stage=$(mktemp -d)
 sles_payload "$stage" "${data[@]}"
 mkdir -p "$HOME/.local/share/fonts" "$HOME/.local/share/themes" "$HOME/.local/share/icons"
-[[ -d $stage/usr/share/fonts ]] && cp -a --no-preserve=context "$stage"/usr/share/fonts/. "$HOME/.local/share/fonts/"
-[[ -d $stage/usr/share/themes ]] && cp -a --no-preserve=context "$stage"/usr/share/themes/. "$HOME/.local/share/themes/"
-[[ -d $stage/usr/share/icons ]] && cp -a --no-preserve=context "$stage"/usr/share/icons/. "$HOME/.local/share/icons/"
+[[ -d $stage/usr/share/fonts ]] && cp -a --no-preserve=context,xattr "$stage"/usr/share/fonts/. "$HOME/.local/share/fonts/"
+[[ -d $stage/usr/share/themes ]] && cp -a --no-preserve=context,xattr "$stage"/usr/share/themes/. "$HOME/.local/share/themes/"
+[[ -d $stage/usr/share/icons ]] && cp -a --no-preserve=context,xattr "$stage"/usr/share/icons/. "$HOME/.local/share/icons/"
 rm -rf "$stage"
 fc-cache -f >/dev/null 2>&1 || true
 log "Fonts/themes in ~/.local/share: ${data[*]}"
@@ -86,33 +86,44 @@ for app in "${flatpaks[@]}"; do
   flatpak info --user "$app" &>/dev/null || { log "Flatpak: $app"; flatpak install --user --noninteractive flathub "$app" >/dev/null; }
 done
 
-# Chromium the way Omarchy calls it: a `chromium` command (web apps run the first
-# word of chromium.desktop's Exec) and the chromium.desktop ID (default browser,
-# mimeapps). Omarchy's flags file and its bundled extensions (in the userland
-# tree) must be visible inside the sandbox.
-if flatpak info --user org.chromium.Chromium &>/dev/null; then
-  install -Dm755 /dev/stdin "$HOME/.local/bin/chromium" <<'SH'
+# Flathub browsers the way Omarchy calls them: the command Omarchy runs (web apps run
+# the first word of the desktop entry's Exec, so it can't be "flatpak"), the desktop ID
+# Omarchy uses (default browser, mimeapps), and Omarchy's flags file plus its bundled
+# extensions (in the userland tree) visible inside the sandbox. The flags file reaches
+# the sandbox through the override alone: Flatpak (1.16) also mounts an xdg-config path
+# into ~/.var/app/<id>/config, and a symlink there made bwrap fail ("Can't create file"),
+# so the browser never started (run 5). Omarchy's browser table: omarchy-default-browser.
+# <app-id> <command> <desktop-id> <flags-file> <wm-class> <name>
+flatpak_browsers=(
+  "org.chromium.Chromium chromium chromium.desktop chromium-flags.conf chromium Chromium"
+  "com.brave.Browser brave brave-browser.desktop brave-flags.conf brave-browser Brave"
+)
+for entry in "${flatpak_browsers[@]}"; do
+  read -r app cmd desktop_id flags wmclass name <<<"$entry"
+  flatpak info --user "$app" &>/dev/null || continue
+  install -Dm755 /dev/stdin "$HOME/.local/bin/$cmd" <<SH
 #!/bin/sh
-# omageeko-sles: Omarchy's `chromium` is the Flathub build
-exec flatpak run --user org.chromium.Chromium "$@"
+# omageeko-sles: Omarchy's \`$cmd\` is the Flathub build ($app)
+exec flatpak run --user $app "\$@"
 SH
-  install -Dm644 /dev/stdin "$HOME/.local/share/applications/chromium.desktop" <<'DESKTOP'
+  install -Dm644 /dev/stdin "$HOME/.local/share/applications/$desktop_id" <<DESKTOP
 [Desktop Entry]
-# omageeko-sles: hidden alias so Omarchy's chromium.desktop ID reaches the Flathub Chromium
+# omageeko-sles: hidden alias so Omarchy's $desktop_id reaches the Flathub $name ($app)
 Type=Application
-Name=Chromium
+Name=$name
 GenericName=Web Browser
-Exec=chromium %U
-Icon=org.chromium.Chromium
+Exec=$cmd %U
+Icon=$app
 Terminal=false
 NoDisplay=true
-StartupWMClass=chromium
+StartupWMClass=$wmclass
 Categories=Network;WebBrowser;
 MimeType=application/pdf;application/xhtml+xml;text/html;text/xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;
 DESKTOP
-  mkdir -p "$HOME/.var/app/org.chromium.Chromium/config"
-  ln -sfn "$HOME/.config/chromium-flags.conf" "$HOME/.var/app/org.chromium.Chromium/config/chromium-flags.conf"
-  flatpak override --user --filesystem="$HOME/.local/share/omarchy:ro" --filesystem=xdg-config/chromium-flags.conf:ro org.chromium.Chromium
-fi
+  # the old symlink (see above) breaks the sandbox: remove it
+  [[ -L $HOME/.var/app/$app/config/$flags ]] && rm -f "$HOME/.var/app/$app/config/$flags"
+  flatpak override --user --filesystem="$HOME/.local/share/omarchy:ro" --filesystem="xdg-config/$flags:ro" "$app"
+  log "Browser: $name (Flathub $app) as \`$cmd\` / $desktop_id"
+done
 
 finish_layer sles/layers/01-base/verify.sh

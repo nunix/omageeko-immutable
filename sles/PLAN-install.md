@@ -608,6 +608,17 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   `/etc/sudoers.d/nunix`). That path was tested separately through a pty on run 4's VM.
 - Cosmetic: an empty `/var/lib/omageeko/repo.before-seed.*` is left behind (the empty repo dir
   that `ensure_local_repo` created, moved aside by the seed). Harmless.
+- **R9 found a major bug: no working browser.** Super+Shift+B did nothing and `git` HTTPS login
+  couldn't open the device page. Cause: the flags symlink in the Chromium sandbox dir collided with
+  Flatpak 1.16's xdg-config mount (bwrap error), so Chromium died at start (layer 01 NOTES). The
+  user asked for **Brave**: Flathub `com.brave.Browser` with a `brave` command +
+  `brave-browser.desktop` alias (layer 01, generic for Flathub browsers, no symlink), default
+  browser + `brave-flags.conf` from the host profile file `browser` (layer 04), dock pin. Verify now
+  starts each browser sandbox and checks `omarchy-cmd-default-browser`. Also found: stage copies
+  leaked `user_tmp_t` through xattrs (`--no-preserve=context,xattr` now). Tested on run 5's VM by
+  rerunning layers 01/03/04: verify all OK, zero tmp labels without restorecon, Super+Shift+B's
+  command opens Brave with Omarchy's flags, `xdg-open https://github.com/login/device` opens Brave.
+  Not yet tested in a fresh one-pass install.
 
 ---
 
