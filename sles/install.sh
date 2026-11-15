@@ -11,7 +11,8 @@
 #   --unattended                      = --yes --reboot
 #   --no-final-reboot                 after a resumed user phase, don't reboot into the greeter
 #                                     (default: reboot once and check the greeter, tools/greeter-check)
-#   --profile <name>                  host profile in sles/hosts/ (default kvm-guest)
+#   --profile <name>                  host profile in sles/hosts/ (default: the one named like this
+#                                     machine's DMI product name, e.g. 21K6S0A00C, else kvm-guest)
 #   --seed github|none|<user@host>    prebuilt RPMs for an empty local repo (tools/seed-repo):
 #                                     github = the published release (default), none = build locally
 #   --dry-run                         preflight + resolve the system phase's packages, no changes
@@ -29,7 +30,10 @@ GREETER_HOLD=/var/lib/omageeko/greeter-hold
 RESUME_UNIT=omageeko-sles-resume.service
 L="$OMAGEEKO_SLES/layers"
 
-phase=auto yes=0 reboot=0 dry=0 seed=github final_reboot=1 from_resume=0 profile=${OMAGEEKO_HOST_PROFILE:-kvm-guest}
+# Host profile: --profile, $OMAGEEKO_HOST_PROFILE, the machine's model (sles/hosts/<DMI product name>), kvm-guest
+dmi_profile=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+[[ -n $dmi_profile && -d $OMAGEEKO_SLES/hosts/$dmi_profile ]] || dmi_profile=kvm-guest
+phase=auto yes=0 reboot=0 dry=0 seed=github final_reboot=1 from_resume=0 profile=${OMAGEEKO_HOST_PROFILE:-$dmi_profile}
 while (( $# )); do
   case $1 in
     --phase) phase=${2:?--phase needs a value}; shift ;;
@@ -141,6 +145,7 @@ MSG
            "$OMAGEEKO_ROOT/upstream.lock" "$OMAGEEKO_ROOT/packages.map" "$OMAGEEKO_ROOT/tools/omageeko-bump"; do
     [[ -e $f ]] || die "Checkout incomplete: $f missing (git submodule update --init, or sles/tools/sync-guest)"
   done
+  log "  host profile: $profile (machine: $(cat /sys/class/dmi/id/product_name 2>/dev/null || echo '?')$(systemd-detect-virt -q && echo ', virtual'))"
   log "  checkout: $OMAGEEKO_IMM (omageeko $(cat "$OMAGEEKO_ROOT/.omageeko-commit" 2>/dev/null || git -C "$OMAGEEKO_ROOT" rev-parse --short HEAD 2>/dev/null || echo '?'))"
 
   if reboot_pending && [[ $(state_get phase) != system-done ]]; then
@@ -251,6 +256,7 @@ phase_system() {
   run_step 01b-hyprland "$L/01b-hyprland/install.sh"
   run_step 02-build-rpms "$L/02-build-rpms/install.sh"
   run_step 03-omarchy.system "$L/03-omarchy/install.sh" --phase system
+  run_step 05-hardware.system "$L/05-hardware/install.sh" --phase system
   if reboot_pending; then
     local n; n=$(sudo snapper --csvout list --columns number,default | awk -F, '$2=="yes"{print $1}')
     state_set snapshot "$n"
@@ -269,6 +275,7 @@ phase_user() {
   run_step 01-base.user "$L/01-base/install.sh" --phase user
   run_step 03-omarchy.user "$L/03-omarchy/install.sh" --phase user
   run_step 04-session "$L/04-session/install.sh"
+  run_step 05-hardware.user "$L/05-hardware/install.sh" --phase user
   # Safety net: default SELinux labels for everything the user phase wrote
   # (the user phase may run from a system unit, whose /tmp files get other labels)
   log "Restoring SELinux labels under $HOME"

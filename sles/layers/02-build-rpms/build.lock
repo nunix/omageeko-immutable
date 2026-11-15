@@ -15,3 +15,6 @@ local ttfx
 # Files, Omarchy's file manager from quattro edge (795dfb2); the switch itself is
 # backported by sles/overlay/patches until upstream.lock reaches it
 local folio
+# -- hardware (layer 05 installs it): Bluetooth pairing agent. Omarchy's bt-agent.service
+# runs /usr/bin/bt-agent; SLES and Package Hub lack bluez-tools. Last, so nothing cascades.
+local bluez-tools

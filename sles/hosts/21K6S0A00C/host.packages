@@ -1,0 +1,16 @@
+# Host packages for the Lenovo ThinkPad P14s Gen 4 (AMD), layer 05 (one snapshot).
+# Firmware for its devices (amdgpu, ath11k Wi-Fi, QCA Bluetooth, ACP audio, Realtek
+# dock NICs) and ucode-amd are already in a minimal SLES 16.1 (kernel-firmware-all).
+# Goodix 27c6:6594 fingerprint reader (enrol: omarchy-setup-security-fingerprint)
+fprintd
+fprintd-pam
+libfprint-2-2
+# USB4/Thunderbolt device authorization (docks)
+bolt
+# BIOS/firmware updates from LVFS (ThinkPads are supported)
+fwupd
+# SOF firmware for AMD/Intel audio DSPs (what Omarchy installs on laptops)
+sof-firmware
+# External monitor brightness (Omarchy's omarchy-brightness-display-ddc); access via
+# omageeko-hardware's uaccess rule for display I2C buses
+ddcutil

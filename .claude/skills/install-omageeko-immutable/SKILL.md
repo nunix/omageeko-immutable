@@ -12,8 +12,10 @@ by hand, and don't run `zypper in` on the host. Read `AGENTS.md` for the rules.
 ## Inputs
 
 - Target: `user@ip` (ssh) or "local". Ask for the IP when the user hasn't given it.
-- Host profile: `kvm-guest` for libvirt VMs; real hardware needs its own `sles/hosts/<profile>/`
-  (copy `kvm-guest`, adjust `home/.config/hypr/*.lua`, `omarchy/shell.json`, `theme`, `terminal`).
+- Host profile: picked from the DMI product name (`sles/hosts/21K6S0A00C` = the user's ThinkPad
+  P14s Gen 4), else `kvm-guest`. New hardware: copy `21K6S0A00C`, adjust `home/.config/hypr/*.lua`,
+  `omarchy/shell.json`, `theme`, `terminal`, `browser`, `host.packages`. Rehearse a bare-metal
+  profile in a VM with `--profile <name>` (layer 05 runs when the profile has `host.packages`).
 - Seed: `github` (default), `none` (full local build, ~50 min), or `user@host`.
 
 ## Prerequisites (the user does these in the installer)
@@ -54,8 +56,9 @@ set up by `bootstrap.sh` (asks once) if missing.
    done
    ```
    Expected flow (seeded, VM, run 4): preflight → seed ~10 s (0.9 GiB) → 00 ~50 s → 01 system ~15 s →
-   01b ~45 s (builder image, no package builds) → 02 ~25 s → 03 system ~5 s → reboot → (no greeter:
-   text console with progress) 01 user ~45 s → 03 user ~15 s → 04 ~10 s → verify all → report →
+   01b ~45 s (builder image, no package builds) → 02 ~25 s → 03 system ~5 s → 05 system (bare metal /
+   rehearsal) → reboot → (no greeter:
+   text console with progress) 01 user ~45 s → 03 user ~15 s → 04 ~10 s → 05 user → verify all → report →
    final reboot → `greeter: ready (...)`. About 5 minutes in total.
    Any `Building <pkg>` line in a seeded run means a stamp mismatch: note which package and why.
 5. **Accept**: every verify OK, `greeter: ready`, then the user's checklist (PLAN R9): first

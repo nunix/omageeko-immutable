@@ -619,6 +619,17 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   rerunning layers 01/03/04: verify all OK, zero tmp labels without restorecon, Super+Shift+B's
   command opens Brave with Omarchy's flags, `xdg-open https://github.com/login/device` opens Brave.
   Not yet tested in a fresh one-pass install.
+- **Bare-metal profile (2026-11-15, after R9):** the target is the same laptop as the Tumbleweed host
+  (ThinkPad P14s Gen 4 AMD, DMI `21K6S0A00C`). New host profile `sles/hosts/21K6S0A00C` from the live
+  config (3-screen desk layout, keybinds incl. carousel/column swap, touchpad, bar, G9 wake kick,
+  lumon/ghostty/brave) plus `host.packages`; `install.sh` picks the profile from the DMI product name.
+  New SLES **layer 05-hardware**: profile packages (fprintd, fprintd-pam, libfprint, bolt, fwupd,
+  sof-firmware, ddcutil), `omageeko-hardware` (already built with omageeko), `bluez-tools` (new in
+  02's lock: SLES has no bt-agent, so Bluetooth pairing would loop, as it did on Tumbleweed),
+  ppd + BLE privacy timer enabled, monitor wake kick for the user. Firmware: a minimal SLES already
+  has kernel-firmware-all + ucode-amd. Rehearsed on run 5's VM with `OMAGEEKO_HOST_PROFILE=21K6S0A00C`:
+  bluez-tools built in 19 s, one snapshot, verify all OK after the reboot, rerun = no snapshot, no
+  failed units; the profile's Hyprland config verifies like the live one.
 
 ---
 

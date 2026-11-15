@@ -22,11 +22,11 @@ changes through `transactional-update` snapshots. Assessment and decisions:
 | [`02-build-rpms`](layers/02-build-rpms/) | verified | quickshell, owe/owe-lockfeed, titlebars plugin, share picker, ttfx, Files (folio) | 7 packages + deps |
 | [`03-omarchy`](layers/03-omarchy/) | verified | Omarchy in `~/.local/share/omarchy` (option B) + SLES overlay; Ghostty bundle in `~/.local/opt/ghostty` (default terminal) | `omageeko-sles` (session entry, lock PAM) + `omageeko-sles-sddm` (greeter config, theme) |
 | [`04-session`](layers/04-session/) | verified, session in use | user reset + provisioning, host profile, SDDM default | none |
-| 05 hardware | n/a in the VM | lock PAM is in `omageeko-sles`; ppd ships with SLES | — |
+| [`05-hardware`](layers/05-hardware/) | new 2026-11-15 | bare metal: the host profile's `host.packages` (ThinkPad: fingerprint, bolt, fwupd, SOF, ddcutil), `omageeko-hardware` (UCM audio labels, display I2C, monitor wake kick, BLE Device Privacy Mode), `bluez-tools` (`bt-agent`); power-profiles-daemon + BLE privacy timer enabled. No-op in VMs unless the profile has `host.packages` | profile packages + 2 |
 | 08 system | deferred | zram/oomd tuning; `omageeko-system` needs scx (not in SLES) | — |
 
-Order: 00 → 01 → 01b → 02 → 03 (their host changes stack into one pending snapshot) → reboot →
-01 user part → 03 user part → 04. Layers take `--phase system|user|all` (default all).
+Order: 00 → 01 → 01b → 02 → 03 → 05 (their host changes stack into one pending snapshot) → reboot →
+01 user part → 03 user part → 04 → 05 user part. Layers take `--phase system|user|all` (default all).
 
 ## Install from scratch
 
@@ -37,7 +37,7 @@ console or ssh; no git needed):
 
 ```bash
 curl -fsSLo /tmp/omageeko-bootstrap.sh https://raw.githubusercontent.com/nunix/omageeko-immutable/main/sles/bootstrap.sh
-bash /tmp/omageeko-bootstrap.sh            # --profile <name> on real hardware, --ref <tag> to pin
+bash /tmp/omageeko-bootstrap.sh            # --ref <tag> to pin; --profile <name> to override
 ```
 
 `bootstrap.sh` sets up passwordless sudo if needed (asks once for the password sudo's prompt names:
@@ -73,7 +73,8 @@ sles/lib/common.sh              helpers (SCC secrets, local repo + tukit bind, t
 sles/lib/build-pkg.sh           builds one pool package or local spec in the builder
 sles/lib/userland.sh            option B: unpack RPMs, deploy the Omarchy tree into $HOME
 sles/overlay/                   SLES replacements laid over the userland tree (pkg-add, update, twbox)
-sles/hosts/<profile>/           per-machine user files + theme (layer 04)
+sles/hosts/<profile>/           per-machine user files, theme/terminal/browser (layer 04), host.packages (layer 05);
+                                picked by DMI product name (sles/hosts/21K6S0A00C = ThinkPad P14s Gen 4), else kvm-guest
 sles/install.sh                 orchestrator: preflight, seed, phases, resume after reboot, verify, report, final reboot
 sles/bootstrap.sh               fetch the code (no git) and start install.sh --unattended
 sles/tools/sync-guest           copy the checkout to a guest without git
