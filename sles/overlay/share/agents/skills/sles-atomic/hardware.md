@@ -28,6 +28,10 @@ Edit the profile in the checkout, then rerun layer 04 (user files) or 05 (packag
 - Profile packages: fprintd, fprintd-pam, libfprint (Goodix 27c6:6594), bolt, fwupd, sof-firmware, ddcutil.
 - Desk: DP-8 (C27G7) | DP-9 + HDMI-A-1 (Odyssey G9 picture-by-picture halves), eDP-1 below;
   names come from the dock's DP MST: check `hyprctl monitors` and adjust `monitors.lua`.
+- Fingerprint sensor is match-on-chip: prints live in the sensor's flash and survive a reinstall
+  while `/var/lib/fprint` starts empty, so enrolling fails ("Finger was already enrolled as
+  'FP1-…'" in `sudo journalctl -u fprintd`). `sles/tools/fprint-clear-storage` lists them,
+  `--wipe` clears the sensor (no snapshot: it fetches the GI typelibs into /tmp).
 - Fingerprint enrollment: `omarchy-setup-security-fingerprint` (lock screen only: with sudo too,
   agents can't use sudo unattended).
 - Bluetooth testing: a host-side `bluetoothctl disconnect` disables auto-connect (invalid test);

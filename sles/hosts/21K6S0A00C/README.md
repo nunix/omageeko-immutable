@@ -31,5 +31,6 @@ I2C access, G9 wake kick, Bluetooth LE Device Privacy Mode) and `bluez-tools`
 (`bt-agent`, the pairing agent Omarchy's `bt-agent.service` runs); power-profiles-daemon
 and the BLE privacy timer enabled.
 
-Manual after the install: fingerprint enrollment (`omarchy-setup-security-fingerprint`),
+Manual after the install: fingerprint enrollment (`omarchy-setup-security-fingerprint`; on a
+reinstall first `sles/tools/fprint-clear-storage --wipe`: the sensor keeps the old prints),
 Bluetooth pairing (MX Master / MX Keys reconnect after sleep thanks to the privacy timer).

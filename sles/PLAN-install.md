@@ -713,7 +713,16 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   - **Standalone layer runs used `kvm-guest`:** layers 04/05 and their verify defaulted to
     `kvm-guest` unless run through `install.sh`, so layer 05 alone on the ThinkPad installed
     nothing. `lib/common.sh` now resolves the profile from the DMI name like `install.sh`.
-- Still for the user: reboot into snapshot 10 (Wi-Fi), enrol the fingerprint, pair the MX devices,
+- After the reboot into snapshot 10: Wi-Fi up (`wlp2s0`, qrtr/qrtr_mhi/ath11k loaded).
+  - **Fingerprint enrollment failed:** fprintd `Finger was already enrolled as
+    'FP1-20261015-7-…-nunix'`. The Goodix sensor is match-on-chip and still held the Tumbleweed
+    install's print, while `/var/lib/fprint` was empty. Cleared via libfprint `clear_storage`; new
+    `sles/tools/fprint-clear-storage` (typelibs fetched into /tmp, no snapshot). Gotcha: keep a
+    reference to `FPrint.Context()` in Python, or `open_sync` segfaults.
+  - **Layer 04 verify FAIL on `omarchy/shell.json`:** the shell rewrites the file on start
+    (literal UTF-8 instead of `\u` escapes, adds `"tray": []`), so `cmp` failed on equal content.
+    The profile copy now holds the normalized form.
+- Still for the user: enrol the fingerprint, pair the MX devices,
   suspend/resume with the dock, the G9 wake kick after deep standby.
 
 ---

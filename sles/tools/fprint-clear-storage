@@ -1,0 +1,62 @@
+#!/bin/bash
+# List, or wipe, the prints stored ON a match-on-chip fingerprint sensor (Goodix 27c6:6594 on the
+# ThinkPad, driver goodixmoc). Such sensors keep prints in their own flash, so they survive a
+# reinstall while /var/lib/fprint starts empty. Enrollment then fails with "Finger was already
+# enrolled as 'FP1-<date>-<finger>-<id>-<user>'" (fprintd journal), run 9.
+# Usage: sles/tools/fprint-clear-storage [--wipe]
+#   without --wipe: list the on-sensor prints only. Needs sudo; stops fprintd (D-Bus restarts it).
+# The libfprint GI typelibs (FPrint, GUsb, Json) aren't on the host; they're downloaded into a temp
+# dir, so no snapshot is needed. libfprint itself is already on the host (profile packages).
+source "$(dirname "$(readlink -f "$0")")/../lib/common.sh"
+wipe=""
+case ${1:-} in --wipe) wipe=wipe ;; "") ;; *) die "Unknown option: $1" ;; esac
+
+tmp=$(mktemp -d /tmp/fprint-clear.XXXX)
+trap 'sudo rm -rf "$tmp"' EXIT
+mkdir "$tmp/root" "$tmp/py"
+sudo zypper -q --pkg-cache-dir "$tmp/pkgs" download \
+  typelib-1_0-FPrint-2_0 typelib-1_0-GUsb-1_0 typelib-1_0-Json-1_0 >/dev/null ||
+  die "could not download the typelib packages"
+for f in $(sudo find "$tmp/pkgs" -name '*.rpm'); do
+  (cd "$tmp/root" && rpm2cpio "$f" | cpio -idm --quiet --no-absolute-filenames '*.typelib')
+done
+
+cat > "$tmp/py/fp.py" <<'EOF'
+import sys, gi
+gi.require_version('FPrint', '2.0')
+from gi.repository import FPrint
+ctx = FPrint.Context()  # keep a reference: a collected context frees its devices (segfault)
+devs = ctx.get_devices()
+if not devs:
+    sys.exit("no fingerprint device")
+dev = devs[0]
+print(f"device: {dev.get_name()} (driver {dev.get_driver()})")
+dev.open_sync()
+try:
+    if not dev.has_feature(FPrint.DeviceFeature.STORAGE):
+        sys.exit("this sensor has no on-chip storage: nothing to clear")
+    prints = dev.list_prints_sync()
+    print(f"on-sensor prints: {len(prints)}")
+    for p in prints:
+        print(f"  {p.get_description()}  user={p.get_username()}  finger={int(p.get_finger())}")
+    if sys.argv[1:] == ["wipe"] and prints:
+        if dev.has_feature(FPrint.DeviceFeature.STORAGE_CLEAR):
+            dev.clear_storage_sync()
+        else:
+            for p in prints:
+                dev.delete_print_sync(p)
+        print(f"wiped; on-sensor prints now: {len(dev.list_prints_sync())}")
+finally:
+    dev.close_sync()
+EOF
+
+sudo systemctl stop fprintd
+# -u: libusb teardown can end the process before a block-buffered stdout is flushed
+rc=0
+sudo env GI_TYPELIB_PATH="$tmp/root/usr/lib64/girepository-1.0" \
+  python3 -I -u "$tmp/py/fp.py" $wipe > "$tmp/out" 2>&1 || rc=$?
+grep -vE 'libusb: warning|DeprecationWarning|has_storage' "$tmp/out" || true
+if [[ -n $wipe ]] && [[ -n $(sudo find /var/lib/fprint -mindepth 1 2>/dev/null | head -1) ]]; then
+  warn "/var/lib/fprint still lists prints that are gone from the sensor: fprintd-delete $USER"
+fi
+exit "$rc"
