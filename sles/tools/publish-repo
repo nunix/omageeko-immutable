@@ -2,22 +2,25 @@
 # Publish a finished machine's local RPM repo as a GitHub release of omageeko-immutable,
 # so new installs seed from it (install.sh --seed github, the default) instead of building
 # for ~50 min or needing another machine.
-# Usage: sles/tools/publish-repo <user@source> [--replace]
+# Usage: sles/tools/publish-repo <user@source|local> [--replace]
 #   Run on a machine with this checkout and an authenticated gh. The source must have
-#   built (or seeded) the repo from the same locks as this checkout.
+#   built (or seeded) the repo from the same locks as this checkout. `local` publishes this
+#   machine's own repo (no ssh).
 # Release tag: repo-<repo_key> (lib/common.sh): one release per set of locks.
 set -euo pipefail
-src=${1:?usage: publish-repo <user@source> [--replace]}
+src=${1:?usage: publish-repo <user@source|local> [--replace]}
 replace=${2:-}
 OMAGEEKO_IMM=$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 # common.sh refuses nothing on source; it only needs the paths and repo_key
 source "$OMAGEEKO_IMM/sles/lib/common.sh"
 command -v gh >/dev/null || die "gh is required"
+# run a command on the source: here for `local`, else over ssh
+on_src() { if [[ $src == local ]]; then bash -c "$1"; else ssh -o BatchMode=yes "$src" "$1"; fi; }
 
 key=$(repo_key)
 tag="repo-$key"
 # The source checkout must be at the same locks, or its RPMs belong to another key
-src_key=$(ssh -o BatchMode=yes "$src" 'cd ~/omageeko-immutable && bash -c "source sles/lib/common.sh; repo_key"') ||
+src_key=$(on_src 'cd ~/omageeko-immutable && bash -c "source sles/lib/common.sh; repo_key"') ||
   die "Cannot compute repo_key on $src (is ~/omageeko-immutable there?)"
 [[ $src_key == "$key" ]] || die "$src has locks for repo-$src_key, this checkout is repo-$key: sync it first (sles/tools/sync-guest)"
 
@@ -30,7 +33,7 @@ trap 'rm -rf "$tmp"' EXIT
 excludes=()
 for s in "${OMAGEEKO_LOCAL_STAMPS[@]}"; do excludes+=(--exclude="repo/.stamps/$s"); done
 log "Fetching /var/lib/omageeko/repo from $src"
-ssh -o BatchMode=yes "$src" "tar -C /var/lib/omageeko ${excludes[*]} -cf - repo" > "$tmp/$OMAGEEKO_REPO_ASSET"
+on_src "tar -C /var/lib/omageeko ${excludes[*]} -cf - repo" > "$tmp/$OMAGEEKO_REPO_ASSET"
 rpms=$(tar -tf "$tmp/$OMAGEEKO_REPO_ASSET" | grep -c '\.rpm$')
 stamps=$(tar -tf "$tmp/$OMAGEEKO_REPO_ASSET" | grep -c '^repo/\.stamps/.')
 (( rpms > 0 )) || die "No RPMs in $src's repo"
