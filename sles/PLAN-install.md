@@ -738,9 +738,9 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
     `ipheth` for the running kernel. Notes in `sles/layers/05-hardware/NOTES.md`, usage in the
     sles-atomic skill's `hardware.md`.
   - Gotcha: a phone plugged in before the snapshot boots needs a replug so udev starts usbmuxd.
-  - The new `build.lock` entry and spec change the lock hash: no published seed matches yet
-    (latest `repo-3c5d3c0bd3bf`), so a fresh install falls back to a local build until
-    `sles/tools/publish-repo` runs.
+  - The new `build.lock` entry and spec change the lock hash, so the seed was republished from
+    this laptop: `repo-0c7c8d9ddf6f` (154 RPMs, 887 MB), with the new `publish-repo local`
+    (no ssh to itself).
 - Still for the user: enrol the fingerprint, pair the MX devices,
   suspend/resume with the dock, the G9 wake kick after deep standby.
 
