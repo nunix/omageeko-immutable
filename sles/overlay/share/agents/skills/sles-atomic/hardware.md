@@ -18,6 +18,11 @@ Edit the profile in the checkout, then rerun layer 04 (user files) or 05 (packag
   Privacy Mode helper + timer (MX devices reconnect after sleep).
 - `bluez-tools` (built in layer 02): `bt-agent`, the pairing agent; without it pairing loops.
 - power-profiles-daemon enabled.
+- iPhone USB tethering: `usbmuxd` + `imobiledevice-tools` (Package Hub) and `ipheth-kmp-default`.
+  SLES builds its kernel with `CONFIG_USB_IPHETH` off, so layer 02 builds the driver as a KMP
+  (`packages/ipheth`) from SLES's own `kernel-source`; `rebuild-on` rebuilds it on kernel updates.
+  Unsigned: loads because Secure Boot is off. Use: Personal Hotspot on, plug in, unlock, **Trust**;
+  if nothing shows up, `idevicepair pair` and replug; `nmcli device` lists the ethernet link.
 
 ## This laptop: ThinkPad P14s Gen 4 AMD (`21K6S0A00C`)
 

@@ -8,6 +8,8 @@
 #     - bluez-tools (built in layer 02): bt-agent, the pairing agent Omarchy's
 #       bt-agent.service runs; without it pairing loops
 #     - power-profiles-daemon and omageeko-bt-device-privacy.{service,timer} enabled
+#     - iPhone USB tethering: usbmuxd + imobiledevice-tools (Package Hub) and ipheth-kmp-default
+#       (built in layer 02: SLES's kernel has CONFIG_USB_IPHETH off); omageeko's +extras
 #   user: omageeko-monitor-wake-kick.service when the host profile lists monitors
 # Runs on bare metal, or in a VM when the profile has host.packages (rehearsal);
 # otherwise it's a no-op. Firmware is already in a minimal SLES (kernel-firmware-all).
@@ -19,6 +21,8 @@ source "$(dirname "$(readlink -f "$0")")/../../lib/common.sh"
 LAYER_DIR="$OMAGEEKO_SLES/layers/05-hardware"
 PROFILE="${OMAGEEKO_HOST_PROFILE:-kvm-guest}"
 HOST_PACKAGES="$OMAGEEKO_SLES/hosts/$PROFILE/host.packages"
+# every bare-metal profile, like omageeko's layer 05 extras
+COMMON_PACKAGES=(usbmuxd imobiledevice-tools)
 SYSTEM_UNITS=(power-profiles-daemon.service omageeko-bt-device-privacy.service omageeko-bt-device-privacy.timer)
 
 parse_phase "$@"
@@ -30,11 +34,10 @@ if systemd-detect-virt -q && [[ ! -f $HOST_PACKAGES ]]; then
 fi
 
 if [[ $PHASE != user ]]; then
-  if [[ -f $HOST_PACKAGES ]]; then
-    mapfile -t pkgs < <(grep -vE '^[[:space:]]*(#|$)' "$HOST_PACKAGES")
-    (( ${#pkgs[@]} )) && host_install "${pkgs[@]}"
-  fi
-  install_from_repo 05 omageeko-hardware bluez-tools
+  pkgs=("${COMMON_PACKAGES[@]}")
+  [[ -f $HOST_PACKAGES ]] && mapfile -t -O ${#pkgs[@]} pkgs < <(grep -vE '^[[:space:]]*(#|$)' "$HOST_PACKAGES")
+  host_install "${pkgs[@]}"
+  install_from_repo 05 omageeko-hardware bluez-tools ipheth-kmp-default
   root=$(target_root)
   todo=()
   for u in "${SYSTEM_UNITS[@]}"; do

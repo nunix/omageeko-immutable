@@ -15,9 +15,13 @@ if [[ -f $HOST_PACKAGES ]]; then
     rpm -q --whatprovides "$p" &>/dev/null && ok "host package $p" || bad "host package $p missing"
   done < <(grep -vE '^[[:space:]]*(#|$)' "$HOST_PACKAGES")
 fi
-for p in omageeko-hardware bluez-tools; do
+for p in usbmuxd imobiledevice-tools; do
+  rpm -q "$p" &>/dev/null && ok "iPhone tethering: $p" || bad "iPhone tethering: $p missing"
+done
+for p in omageeko-hardware bluez-tools ipheth-kmp-default; do
   v=$(rpm -q --qf '%{VERSION}' "$p" 2>/dev/null) && ok "$p $v" || bad "$p not installed"
 done
+/usr/sbin/modinfo -k "$(uname -r)" ipheth &>/dev/null && ok "ipheth driver resolves for $(uname -r)" || bad "ipheth driver not found for $(uname -r) (KMP not built for this kABI?)"
 [[ -x /usr/bin/bt-agent ]] && ok "bt-agent (Bluetooth pairing agent)" || bad "/usr/bin/bt-agent missing: pairing would loop"
 for u in power-profiles-daemon.service omageeko-bt-device-privacy.service omageeko-bt-device-privacy.timer bluetooth.service; do
   systemctl is-enabled -q "$u" 2>/dev/null && ok "$u enabled" || bad "$u not enabled"

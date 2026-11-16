@@ -18,3 +18,6 @@ local folio
 # -- hardware (layer 05 installs it): Bluetooth pairing agent. Omarchy's bt-agent.service
 # runs /usr/bin/bt-agent; SLES and Package Hub lack bluez-tools. Last, so nothing cascades.
 local bluez-tools
+# -- hardware (layer 05 installs it): iPhone USB tethering. SLES builds its kernel without
+# CONFIG_USB_IPHETH; this KMP (ipheth-kmp-default) builds the driver from SLES's kernel-source.
+local ipheth

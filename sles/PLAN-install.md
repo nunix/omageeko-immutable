@@ -722,6 +722,25 @@ verify Agama details. Machine time: full unseeded build ≈ 50 min, seeded ≈ 1
   - **Layer 04 verify FAIL on `omarchy/shell.json`:** the shell rewrites the file on start
     (literal UTF-8 instead of `\u` escapes, adds `"tray": []`), so `cmp` failed on equal content.
     The profile copy now holds the normalized form.
+- 2026-11-16, **iPhone USB tethering** (snapshot 13, kernel `6.12.0-160100.9`): works, confirmed by
+  the user (the iPhone comes up as `eth0` on the `ipheth` driver, connected).
+  - SLES 16.1 builds its kernel with `# CONFIG_USB_IPHETH is not set`: the driver is in neither
+    `kernel-default` nor `kernel-default-extra` (Tumbleweed has it in-kernel, so omageeko only adds
+    the userland).
+  - New `packages/ipheth` (layer 02, `local ipheth` in `build.lock`): a KMP whose `%prep` copies
+    `drivers/net/usb/ipheth.c` out of SLES's `kernel-source`, so it's the shipped kernel's code.
+    Output `ipheth-kmp-default` (ksym() Requires, Apple USB modalias); weak-modules2 keeps it across
+    same-kABI kernel updates, `rebuild-on: kernel-default-devel` rebuilds it otherwise. Unsigned:
+    fine with Secure Boot off; with it on it would need a MOK key.
+  - Layer 05 installs `usbmuxd` + `imobiledevice-tools` (Package Hub) on every bare-metal profile
+    (`COMMON_PACKAGES`, like omageeko's `+usbmuxd`/`+imobiledevice-tools` extras) and
+    `ipheth-kmp-default` from the local repo; verify checks the packages and that `modinfo` resolves
+    `ipheth` for the running kernel. Notes in `sles/layers/05-hardware/NOTES.md`, usage in the
+    sles-atomic skill's `hardware.md`.
+  - Gotcha: a phone plugged in before the snapshot boots needs a replug so udev starts usbmuxd.
+  - The new `build.lock` entry and spec change the lock hash: no published seed matches yet
+    (latest `repo-3c5d3c0bd3bf`), so a fresh install falls back to a local build until
+    `sles/tools/publish-repo` runs.
 - Still for the user: enrol the fingerprint, pair the MX devices,
   suspend/resume with the dock, the G9 wake kick after deep standby.
 
